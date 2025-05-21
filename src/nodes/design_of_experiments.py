@@ -142,9 +142,6 @@ class DesignOfExperiments:
                 values = list(range(min_val, max_val + 1, step_val))
                 factor_dict[factor_name] = values
 
-            #values = list(range(min_val, max_val + 1, step_val))
-            #factor_dict[name] = values
-
         if self.design_choice == Design.FULLFAC.name:
             df_doe = build.full_fact(factor_dict)
         elif self.design_choice == Design.LHS.name:
@@ -178,7 +175,6 @@ class DesignOfExperiments:
                     continue  # skip CONFIGURATION column
 
                 try:
-                    # Example: "Dry_Etch/DE_BE_11:NUMBER OF TOOLS"
                     unique_id, factor_info = col.split("/", 1)
                     factor_name, value_col = factor_info.split(":", 1)
                 except ValueError:
@@ -188,11 +184,11 @@ class DesignOfExperiments:
                 rows.append({
                     "EXPERIMENT": experiment_name,
                     "CONFIGURATION": configuration,
-                    #"TABLE": "toolgroups",  # optional: make this configurable if needed
+                    #"TABLE": "toolgroups",
                     "COL_UNIQUEID": unique_col,
                     "COL_FACTOR": name_col,
                     "COL_VALUE": value_col,
-                    "UNIQUE IDENTIFIER": unique_id,  # optional: could also be derived
+                    "UNIQUE IDENTIFIER": unique_id,
                     "FACTOR": factor_name,
                     "VALUES": row[col]
                 })
