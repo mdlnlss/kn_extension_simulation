@@ -1,0 +1,4 @@
+org.knime.simulation: # {group_id}.{name} from the knime.yml
+  src: C:\Users\mal16gel\Documents\3_RESOURCES\knime-development\kn_extension_simulation # Local path to folder containing the extension files
+  conda_env_path: C:\Users\mal16gel\.conda\envs\kn_simulation # Path to the local installed Python environment to use
+  debug_mode: true # Optional line, if set to true, it will always use the latest changes of execute/configure, when that method is used within the KNIME Analytics Platform
