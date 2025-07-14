@@ -16,6 +16,10 @@ class Design(knext.EnumParameterOptions):
     PLACKETTBURMAN = ("Plackett-Burman", "...")
     SUKHAREDGRID = ("Sukharev-Grid Hypercube", "...")
 
+# COMMENT
+class Granularity(knext.EnumParameterOptions):
+    TABLE = ("Complete Table", "...")
+    VALUE = ("Specific Values", "...")
 
 @knext.parameter_group(label="Dynamic Selection")
 class FactorConfiguration:
@@ -64,6 +68,7 @@ class FactorConfiguration:
 )
 
 @knext.input_table(name="Input Data", description="...")
+@knext.input_table(name="Test", description="...", optional=True)
 @knext.output_table(name="DoE Data", description="...")
 @knext.output_table(name="Flattened DoE Table", description="...")
 
@@ -95,6 +100,15 @@ class DesignOfExperiments:
         knext.Effect.SHOW
     )
 
+    # COMMENT
+    doe_mode = knext.EnumParameter(
+        label="Mode",
+        description="...",
+        default_value=Granularity.TABLE.name,
+        enum=Granularity,
+        style=knext.EnumParameter.Style.VALUE_SWITCH,
+    )
+
     # Factor Configuration
     factor_configuration = knext.ParameterArray(
         label="Factor Configuration",
@@ -107,13 +121,13 @@ class DesignOfExperiments:
 
 
     # Configuration-time logic
-    def configure(self, configure_context, input_schema_1):
+    def configure(self, configure_context, input_schema_1, input_schema_2):
         configure_context.set_warning("This is a warning during configuration")
 
         #return input_schema_1
 
     # Main execution logic
-    def execute(self, exec_context, input_1):
+    def execute(self, exec_context, input_1, input_2):
 
         input_df = input_1.to_pandas()
         factor_dict = {}

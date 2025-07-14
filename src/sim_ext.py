@@ -2,7 +2,7 @@ import knime.extension as knext
 
 main_category = knext.category(
     path="/community/simulation",
-    level_id="sim",
+    level_id="simulation",
     name="Simulation Studies",
     description="Python Nodes for Simulation Studies",
     icon="icons/icon.png",
@@ -10,3 +10,5 @@ main_category = knext.category(
 
 from nodes import model_import
 from nodes import design_of_experiments
+from nodes import model_executor
+from nodes import columns_to_variables

@@ -1,4 +1,17 @@
+# Simulation Extension
 org.knime.simulation: # {group_id}.{name} from the knime.yml
   src: C:\Users\mal16gel\Documents\3_RESOURCES\knime-development\kn_extension_simulation # Local path to folder containing the extension files
-  conda_env_path: C:\Users\mal16gel\.conda\envs\kn_simulation # Path to the local installed Python environment to use
-  debug_mode: true # Optional line, if set to true, it will always use the latest changes of execute/configure, when that method is used within the KNIME Analytics Platform
+  conda_env_path: C:\Users\mal16gel\Documents\3_RESOURCES\knime-development\kn_extension_simulation\.pixi\envs\default # Path to the local installed Python environment to use
+  debug_mode: false # Optional line, if set to true, it will always use the latest changes of execute/configure, when that method is used within the KNIME Analytics Platform
+
+# PPTX Extension
+org.knime.powerpoint: # {group_id}.{name} from the knime.yml
+  src: C:\Users\mal16gel\Documents\3_RESOURCES\knime-development\kn_extension_powerpoint # Local path to folder containing the extension files
+  conda_env_path: C:\Users\mal16gel\Documents\3_RESOURCES\knime-development\kn_extension_powerpoint\.pixi\envs\default # Path to the local installed Python environment to use
+  debug_mode: false # Optional line, if set to true, it will always use the latest changes of execute/configure, when that method is used within the KNIME Analytics Platform
+
+# Example
+org.tutorial.first_extension: # {group_id}.{name} from the knime.yml
+  src: C:\Users\mal16gel\Documents\3_RESOURCES\knime-development\knime-python-extension-template # Path to folder containing the extension files
+  conda_env_path: C:\Users\mal16gel\Documents\3_RESOURCES\knime-development\knime-python-extension-template\.pixi\envs\default # Path to the Python environment to use (use an absolute path)
+  debug_mode: false # Optional line, if set to true, it will always use the latest changes of execute/configure, when that method is used within the KNIME Analytics Platform
