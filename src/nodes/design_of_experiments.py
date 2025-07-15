@@ -68,23 +68,17 @@ class DesignOfExperiments:
     # Main execution logic
     def execute(self, exec_context, input_1, input_2, input_3, input_4):
 
-        try:
-            input_df1 = input_1.to_pandas()
-            dict1 = input_df1.to_dict(orient='list')
-        except Exception:
-            input_df1 = None
-            dict1 = {}
+        merged_dict = {}
 
-        try:
-            input_df2 = input_2.to_pandas()
-            dict2 = input_df2.to_dict(orient='list')
-        except Exception:
-            input_df2 = None
-            dict2 = {}
+        for input_table in [input_1, input_2, input_3, input_4]:
+            if input_table is not None:
+                try:
+                    df = input_table.to_pandas()
+                    merged_dict |= df.to_dict(orient='list')
+                except Exception as e:
+                    print(f"Fehler beim Verarbeiten eines Inputs: {e}")
 
-        merged = dict1 | dict2
-
-        factor_dict = merged
+        factor_dict = merged_dict
 
         if self.design_choice == Design.FULLFAC.name:
             df_doe = build.full_fact(factor_dict)
@@ -107,16 +101,14 @@ class DesignOfExperiments:
             [f"configuration_{i:06d}" for i in range(len(df_doe))]
         )
 
-        # Prepare long-format output
         rows = []
         experiment_name = f"{time.strftime('%Y-%m-%d_%H%M%S')}_{self.design_choice}"
 
-        # Iterate over rows and columns to flatten the DoE table
         for _, row in df_doe.iterrows():
             configuration = row["CONFIGURATION"]
             for col in df_doe.columns:
                 if col == "CONFIGURATION":
-                    continue  # skip CONFIGURATION column
+                    continue
 
                 try:
                     parts = col.split(":")
@@ -130,7 +122,7 @@ class DesignOfExperiments:
                             value = part[part.find("]")+1:]
                             label_map[label.upper()] = value
                         else:
-                            value_col = part  # Der letzte Teil ohne Label
+                            value_col = part
                     
                     unique_col = "AREA"
                     unique_id = label_map.get("AREA", "?")
@@ -154,7 +146,6 @@ class DesignOfExperiments:
                     "VALUES": row[col]
                 })
 
-        # Create long-format dataframe
         df_long = pd.DataFrame(rows)
 
         return knext.Table.from_pandas(df_doe), knext.Table.from_pandas(df_long)

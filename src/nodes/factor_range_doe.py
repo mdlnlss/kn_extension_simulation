@@ -96,21 +96,6 @@ class FactorRangeDOE:
     def configure(self, configure_context, input_schema_1):
         configure_context.set_warning("This is a warning during configuration")
 
-        for config in self.factor_configuration:
-            value_col_name = config.factor_value
-            value_col_spec = input_schema_1[value_col_name]
-            value_type = value_col_spec.type
-            configure_context.set_warning("Spaltentyp: " + value_type)
-
-
-            #is_numeric = value_type in (knext.
-
-            #configure_context.set_visible(config, "min_value", is_numeric)
-            #configure_context.set_visible(config, "max_value", is_numeric)
-            #configure_context.set_visible(config, "step_value", is_numeric)
-
-        configure_context.set_warning("Configuration updated based on column type.")
-
     # Main execution logic
     def execute(self, exec_context, input_1):
 
