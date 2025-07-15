@@ -31,7 +31,7 @@ class DbDialect(knext.EnumParameterOptions):
     name="Simulation Model Importer",
     node_type=knext.NodeType.SOURCE,
     icon_path="icons/model.png",
-    category="/simulation"
+    category="/community/simulation"
 )
 
 @knext.output_table(name="Output Data", description="Result of simulation model setup.")

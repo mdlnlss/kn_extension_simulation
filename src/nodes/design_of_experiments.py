@@ -16,59 +16,18 @@ class Design(knext.EnumParameterOptions):
     PLACKETTBURMAN = ("Plackett-Burman", "...")
     SUKHAREDGRID = ("Sukharev-Grid Hypercube", "...")
 
-# COMMENT
-class Granularity(knext.EnumParameterOptions):
-    TABLE = ("Complete Table", "...")
-    VALUE = ("Specific Values", "...")
-
-@knext.parameter_group(label="Dynamic Selection")
-class FactorConfiguration:
-    unique_identifier = knext.ColumnParameter(
-        "Identifier",
-        "Select the column with your factor's unique identifier",
-        port_index=0
-    )
-
-    factor_name = knext.ColumnParameter(
-        "Name",
-        "Select the column with the factor name",
-        port_index=0
-    )
-
-    factor_value = knext.ColumnParameter(
-        "Value",
-        "Select the column with the factor values",
-        port_index=0
-    )
-
-    min_value = knext.IntParameter(
-        "Minimum",
-        "...",
-        default_value=0
-    )
-
-    max_value = knext.IntParameter(
-        "Maximum",
-        "...",
-        default_value=1
-    )
-
-    step_value = knext.IntParameter(
-        "Step",
-        "...",
-        default_value=1
-    )
-
 # Define the KNIME node
 @knext.node(
     name="Design of Experiments",
     node_type=knext.NodeType.MANIPULATOR,
     icon_path="icons/try.png",
-    category="/simulation"
+    category="/community/simulation"
 )
 
 @knext.input_table(name="Input Data", description="...")
-@knext.input_table(name="Test", description="...", optional=True)
+@knext.input_table(name="Input Data2", description="...", optional=True)
+@knext.input_table(name="Input Data3", description="...", optional=True)
+@knext.input_table(name="Input Data4", description="...", optional=True)
 @knext.output_table(name="DoE Data", description="...")
 @knext.output_table(name="Flattened DoE Table", description="...")
 
@@ -100,61 +59,32 @@ class DesignOfExperiments:
         knext.Effect.SHOW
     )
 
-    # COMMENT
-    doe_mode = knext.EnumParameter(
-        label="Mode",
-        description="...",
-        default_value=Granularity.TABLE.name,
-        enum=Granularity,
-        style=knext.EnumParameter.Style.VALUE_SWITCH,
-    )
-
-    # Factor Configuration
-    factor_configuration = knext.ParameterArray(
-        label="Factor Configuration",
-        description="...",
-        parameters=FactorConfiguration(),
-        layout_direction=knext.LayoutDirection.HORIZONTAL,
-        button_text="Add New Configuration",
-        array_title="Factor Configuration",
-    )
-
-
     # Configuration-time logic
-    def configure(self, configure_context, input_schema_1, input_schema_2):
+    def configure(self, configure_context, input_schema_1, input_schema_2, input_schema_3, input_schema_4):
         configure_context.set_warning("This is a warning during configuration")
 
         #return input_schema_1
 
     # Main execution logic
-    def execute(self, exec_context, input_1, input_2):
+    def execute(self, exec_context, input_1, input_2, input_3, input_4):
 
-        input_df = input_1.to_pandas()
-        factor_dict = {}
+        try:
+            input_df1 = input_1.to_pandas()
+            dict1 = input_df1.to_dict(orient='list')
+        except Exception:
+            input_df1 = None
+            dict1 = {}
 
-        # Iterate trough factor_configuration
-        for i, config in enumerate(self.factor_configuration):
-            unique_col = config.unique_identifier
-            name_col = config.factor_name
-            value_col = config.factor_value
+        try:
+            input_df2 = input_2.to_pandas()
+            dict2 = input_df2.to_dict(orient='list')
+        except Exception:
+            input_df2 = None
+            dict2 = {}
 
-            name = f"{unique_col}/{name_col}:{value_col}"
+        merged = dict1 | dict2
 
-            min_val = config.min_value
-            max_val = config.max_value
-            step_val = config.step_value
-
-            combinations = (
-                input_df[[unique_col, name_col]]
-                .drop_duplicates()
-                .dropna()
-                .values
-            )
-
-            for unique_val, name_val in combinations:
-                factor_name = f"{unique_val}/{name_val}:{value_col}"
-                values = list(range(min_val, max_val + 1, step_val))
-                factor_dict[factor_name] = values
+        factor_dict = merged
 
         if self.design_choice == Design.FULLFAC.name:
             df_doe = build.full_fact(factor_dict)
@@ -189,16 +119,33 @@ class DesignOfExperiments:
                     continue  # skip CONFIGURATION column
 
                 try:
-                    unique_id, factor_info = col.split("/", 1)
-                    factor_name, value_col = factor_info.split(":", 1)
-                except ValueError:
-                    # In case column name doesn't follow expected pattern
-                    unique_id, factor_name, value_col = "?", "?", "?"
+                    parts = col.split(":")
+                    
+                    table = parts[0] if len(parts) > 0 else "?"
+                    
+                    label_map = {}
+                    for part in parts[1:]:
+                        if part.startswith("[") and "]" in part:
+                            label = part[1:part.find("]")]
+                            value = part[part.find("]")+1:]
+                            label_map[label.upper()] = value
+                        else:
+                            value_col = part  # Der letzte Teil ohne Label
+                    
+                    unique_col = "AREA"
+                    unique_id = label_map.get("AREA", "?")
+                    name_col = "TOOLGROUP"
+                    factor_name = label_map.get("TOOLGROUP", "?")
+                    value_col = value_col if "value_col" in locals() else "?"
+                    
+                except Exception as e:
+                    LOGGER.warning(f"Failed to parse column name '{col}': {e}")
+                    table = unique_id = factor_name = value_col = unique_col = name_col = "?"
 
                 rows.append({
                     "EXPERIMENT": experiment_name,
                     "CONFIGURATION": configuration,
-                    #"TABLE": "toolgroups",
+                    "TABLE": table,
                     "COL_UNIQUEID": unique_col,
                     "COL_FACTOR": name_col,
                     "COL_VALUE": value_col,

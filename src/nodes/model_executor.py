@@ -13,7 +13,7 @@ LOGGER = logging.getLogger(__name__)
     name="Simulation Model Executor",
     node_type=knext.NodeType.SINK,
     icon_path="icons/model.png",
-    category="/simulation"
+    category="/community/simulation"
 )
 
 @knext.input_table(name="Test", description="...")

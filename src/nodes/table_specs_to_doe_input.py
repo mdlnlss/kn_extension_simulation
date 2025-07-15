@@ -11,16 +11,16 @@ LOGGER = logging.getLogger(__name__)
 
 # Define the KNIME node
 @knext.node(
-    name="Table Columns to Variables (String)", # change! #Preparation for DoE?
+    name="Table Specs to DoE Input", # change! #Preparation for DoE?
     node_type=knext.NodeType.OTHER,
     icon_path="icons/icon.png",
     category="/community/simulation"
 )
 
 @knext.input_table(name="Test", description="...")
-@knext.output_table(name="Output Data", description="Result of simulation model setup.")
+@knext.output_table(name="Output Data", description="...")
 
-class ColumnsToVariables:
+class SpecsToDOE:
     """Short one-line description of the node.
         ...
     """
@@ -39,16 +39,25 @@ class ColumnsToVariables:
     def execute(self, exec_context, input_1):
         
         df_origin = input_1.to_pandas()
+        flow_vars = exec_context.flow_variables
 
-        df = df_origin.select_dtypes(include='string')
+        # Beispiel: {"table-selection": "toolgroups", ...}
+        if "table-selection" in flow_vars:
+            selection_value = flow_vars["table-selection"]
+            new_var_name = f"table-selection_{selection_value}"
+            columns_var_name = f"columns_{selection_value}"
 
-        if df.empty:
-            raise knext.WorkflowExecutionError("Input table is empty.")
+            LOGGER.warning("Adding selection flow var: %s = %s", new_var_name, selection_value)
 
-        for col in df.columns:
-            values = df[col].dropna().astype(str).unique().tolist()
-            joined = ",".join(values)
-            exec_context.flow_variables[col] = joined
-            LOGGER.info(f"Flow variable '{col}' set to '{joined}'")
+            # Neue Flow-Variable setzen
+            exec_context.flow_variables[new_var_name] = selection_value
+
+            columns_str = ",".join(df_origin.columns)
+            exec_context.flow_variables[columns_var_name] = columns_str
+
+
+        #LOGGER.warning("Verfügbare Flow-Variablen: %s", list(flow_vars.keys()))
+        
+        
 
         return knext.Table.from_pandas(df_origin)

@@ -9,6 +9,9 @@ main_category = knext.category(
 )
 
 from nodes import model_import
+from nodes import factor_range_doe
 from nodes import design_of_experiments
 from nodes import model_executor
-from nodes import columns_to_variables
+
+#from nodes import columns_to_variables
+#from nodes import table_specs_to_doe_input
