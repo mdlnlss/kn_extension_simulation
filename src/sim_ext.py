@@ -8,7 +8,7 @@ main_category = knext.category(
     icon="icons/icon.png",
 )
 
-from nodes import model_import_custom
+from nodes import model_import
 from nodes import factor_range_doe
 from nodes import design_of_experiments
-from nodes import model_executor_custom
+from nodes import model_executor

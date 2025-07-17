@@ -2,12 +2,8 @@ import logging
 from typing import TextIO, BinaryIO
 from utils import simulation_port as sp, parameter_definition as pdef
 import knime.extension as knext
-import os
 import pandas as pd
-import shutil
-import subprocess
-import re
-import json
+
 
 # setup logger
 LOGGER = logging.getLogger(__name__)
@@ -123,6 +119,12 @@ class ModelImporterCustom:
 
     # main execution logic
     def execute(self, exec_context):
+        import os
+        import shutil
+        import subprocess
+        import re
+        import json
+
         # simulation tool metadata as flow variables
         exec_context.flow_variables["simulation_tool"] = self.tool_choice
 

@@ -1,8 +1,7 @@
 import logging
 import knime.extension as knext
 import pandas as pd
-from doepy import build
-from utils import string_factor_mapping as str_map, parameter_definition as pdef
+from utils import parameter_definition as pdef
 import time
 
 # setup logger
@@ -16,8 +15,7 @@ LOGGER = logging.getLogger(__name__)
     category="/community/simulation"
 )
 
-@knext.input_table(name="Input Data", description="...")
-@knext.input_table(name="Input Data2", description="...", optional=True)
+@knext.input_table_group(name="Input Data", description="...")
 @knext.output_table(name="DoE Data", description="...")
 @knext.output_table(name="Flattened DoE Table", description="...")
 
@@ -54,19 +52,22 @@ class DesignOfExperiments:
     )
 
     # configuration-time logic
-    def configure(self, configure_context, input_schema_1, input_schema_2, input_schema_3, input_schema_4):
+    def configure(self, configure_context, input_table_specs: list[knext.Schema]):
         configure_context.set_warning("This is a warning during configuration")
 
-        #return input_schema_1
+        #return knext.Schema([], []), knext.Schema([], [])
 
     # main execution logic
-    def execute(self, exec_context, input_1, input_2, input_3, input_4):
+    def execute(self, exec_context, input_tables: list[knext.Table]):
+        from doepy import build
+        from utils import string_factor_mapping as str_map
+
         # collect all factor definitions from up to four input tables into one dictionary
         # each table is expected to contain key-value pairs defining a single or multiple factors
         merged_dict = {}
 
         # iterate over all input tables and merge their content
-        for input_table in [input_1, input_2, input_3, input_4]:
+        for input_table in input_tables:
             if input_table is not None:
                 try:
                     # convert KNIME table to pandas DataFrame

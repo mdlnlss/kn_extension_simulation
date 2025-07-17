@@ -1,11 +1,7 @@
 import logging
 import knime.extension as knext
 from utils import simulation_port as sp
-import os
-import platform
 import pandas as pd
-import shutil
-import subprocess
 
 # setup logger
 LOGGER = logging.getLogger(__name__)
@@ -31,6 +27,10 @@ class ModelExecutorCustom:
 
     # main execution logic
     def execute(self, exec_context, input_1: sp.SimulationModelPort):
+        import os
+        import platform
+        import subprocess
+
         # get the file system path of the simulation model input
         model_path = input_1.path
 

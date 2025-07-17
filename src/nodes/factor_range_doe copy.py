@@ -6,10 +6,6 @@ import json
 # setup logger
 LOGGER = logging.getLogger(__name__)
 
-class FactorInputType(knext.EnumParameterOptions):
-    TABLEBASED = ("table-based", "...")
-    ARGUMENTBASED = ("argument-based", "...")
-
 class FactorDataType(knext.EnumParameterOptions):
     STRING = ("String", "...")
     NUMERIC = ("Numeric", "...")
@@ -36,13 +32,6 @@ class FactorRangeDOE:
     """Short one-line description of the node.
         This node enables ...
     """
-    factor_input_type = knext.EnumParameter(
-        label="Input Type",
-        description="...",
-        default_value=FactorInputType.TABLEBASED.name,
-        enum=FactorInputType,
-        style=knext.EnumParameter.Style.VALUE_SWITCH,
-    )
 
     # string parameter to define the name of the output table
     # default value is set to "your_table"
@@ -50,9 +39,6 @@ class FactorRangeDOE:
         "Table",
         "...",
         default_value="your_table"
-    ).rule(
-        knext.OneOf(factor_input_type, [FactorInputType.TABLEBASED.name]),  
-        knext.Effect.SHOW
     )
     
     # column parameter to select a unique identifier for each factor
@@ -62,9 +48,6 @@ class FactorRangeDOE:
         "Select the column with your factor's unique identifier",
         port_index=0,
         column_filter=lambda c: c.ktype == knext.string()
-    ).rule(
-        knext.OneOf(factor_input_type, [FactorInputType.TABLEBASED.name]),  
-        knext.Effect.SHOW
     )
 
     # column parameter to select the column containing factor names
@@ -74,9 +57,6 @@ class FactorRangeDOE:
         "Select the column with the factor name",
         port_index=0,
         column_filter=lambda c: c.ktype == knext.string()
-    ).rule(
-        knext.OneOf(factor_input_type, [FactorInputType.TABLEBASED.name]),  
-        knext.Effect.SHOW
     )
 
     # define a parameter to allow the user to select the expected data type of the factor column
