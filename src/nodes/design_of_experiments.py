@@ -2,35 +2,11 @@ import logging
 import knime.extension as knext
 import pandas as pd
 from doepy import build
-from utils import apply_factor_mappings as apply_map
+from utils import string_factor_mapping as str_map, parameter_definition as pdef
 import time
 
 # setup logger
 LOGGER = logging.getLogger(__name__)
-
-# define the available experimental design strategies for simulation studies
-# each enum entry represents a specific design of experiments (DoE) method 
-# used to generate structured or sampled configurations based on factor definitions
-# the selected design determines how combinations of input factors are generated and tested
-class Design(knext.EnumParameterOptions):
-    # generates all possible combinations of factor levels
-    FULLFAC = ("Full Factorial", "Creates a complete factorial design by combining every level of each factor")
-
-    # samples the factor space evenly by stratifying each dimension
-    LHS = ("Latin Hypercube Sampling", "Generates a space-filling design where each factor range is divided into equally probable intervals and sampled once")
-
-    # improves standard LHS by maximizing distance between points for better space coverage
-    SPACEFILLINGLHS = ("Space-Filling Latin Hypercube", "Enhances Latin Hypercube Sampling to distribute samples more uniformly across the entire factor space")
-
-    # generates random samples and applies k-means clustering to reduce them to representative configurations
-    RANDOMKMEANS = ("Random k-Means", "Samples the factor space randomly and uses k-means clustering to identify representative configurations")
-
-    # highly efficient screening design that reduces the number of experiments while detecting main effects
-    PLACKETTBURMAN = ("Plackett-Burman", "Creates an efficient screening design to identify influential factors with a minimal number of runs")
-
-    # uses a structured quasi-random grid for even distribution over the parameter space
-    SUKHAREDGRID = ("Sukharev-Grid Hypercube", "Generates a quasi-random grid that fills the factor space with well-distributed sample points")
-
 
 # define the KNIME node
 @knext.node(
@@ -42,8 +18,6 @@ class Design(knext.EnumParameterOptions):
 
 @knext.input_table(name="Input Data", description="...")
 @knext.input_table(name="Input Data2", description="...", optional=True)
-@knext.input_table(name="Input Data3", description="...", optional=True)
-@knext.input_table(name="Input Data4", description="...", optional=True)
 @knext.output_table(name="DoE Data", description="...")
 @knext.output_table(name="Flattened DoE Table", description="...")
 
@@ -57,8 +31,8 @@ class DesignOfExperiments:
     design_choice = knext.EnumParameter(
         label="Experiment Design",
         description="...",
-        default_value=Design.FULLFAC.name,
-        enum=Design,
+        default_value=pdef.ExperimentDesigns.FULLFAC.name,
+        enum=pdef.ExperimentDesigns,
         style=knext.EnumParameter.Style.DROPDOWN,
     )
 
@@ -71,10 +45,10 @@ class DesignOfExperiments:
         min_value=1
     ).rule(
         knext.Or(
-            knext.OneOf(design_choice, [Design.LHS.name]), 
-            knext.OneOf(design_choice, [Design.SPACEFILLINGLHS.name]), 
-            knext.OneOf(design_choice, [Design.RANDOMKMEANS.name]),
-            knext.OneOf(design_choice, [Design.SUKHAREDGRID.name])
+            knext.OneOf(design_choice, [pdef.ExperimentDesigns.LHS.name]), 
+            knext.OneOf(design_choice, [pdef.ExperimentDesigns.SPACEFILLINGLHS.name]), 
+            knext.OneOf(design_choice, [pdef.ExperimentDesigns.RANDOMKMEANS.name]),
+            knext.OneOf(design_choice, [pdef.ExperimentDesigns.SUKHAREDGRID.name])
         ),
         knext.Effect.SHOW
     )
@@ -107,17 +81,17 @@ class DesignOfExperiments:
         factor_dict = merged_dict
 
         # generate the design of experiments based on the selected design strategy
-        if self.design_choice == Design.FULLFAC.name:
+        if self.design_choice == pdef.ExperimentDesigns.FULLFAC.name:
             df_doe = build.full_fact(factor_dict)
-        elif self.design_choice == Design.LHS.name:
+        elif self.design_choice == pdef.ExperimentDesigns.LHS.name:
             df_doe = build.lhs(factor_dict, num_samples=self.samples)
-        elif self.design_choice == Design.SPACEFILLINGLHS.name:
+        elif self.design_choice == pdef.ExperimentDesigns.SPACEFILLINGLHS.name:
             df_doe = build.space_filling_lhs(factor_dict, num_samples=self.samples)
-        elif self.design_choice == Design.RANDOMKMEANS.name:
+        elif self.design_choice == pdef.ExperimentDesigns.RANDOMKMEANS.name:
             df_doe = build.random_k_means(factor_dict, num_samples=self.samples)
-        elif self.design_choice == Design.PLACKETTBURMAN.name:
+        elif self.design_choice == pdef.ExperimentDesigns.PLACKETTBURMAN.name:
             df_doe = build.plackett_burman(factor_dict)
-        elif self.design_choice == Design.SUKHAREDGRID.name:
+        elif self.design_choice == pdef.ExperimentDesigns.SUKHAREDGRID.name:
             df_doe = build.sukharev(factor_dict, num_samples=self.samples)
         else:
             raise ValueError(f"Design {self.design_choice} is not implemented.")
@@ -193,7 +167,7 @@ class DesignOfExperiments:
 
         # apply factor mappings (such as translation, normalization, or remapping) to each row
         # this depends on flow variables and a mapping utility defined elsewhere
-        df_long = apply_map.apply_factor_mappings(df_long, exec_context.flow_variables, axis=1)
+        df_long = str_map.string_factor_mapping(df_long, exec_context.flow_variables, axis=1)
         
         # ensure that all values are strings, as KNIME ports expect uniform data types
         df_long["VALUES"] = df_long["VALUES"].astype(str)

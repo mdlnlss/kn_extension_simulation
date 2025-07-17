@@ -157,43 +157,60 @@ class FactorRangeDOE:
     # main execution logic
     def execute(self, exec_context, input_1):
 
+        # convert the input KNIME table to a pandas DataFrame
         input_df = input_1.to_pandas()
-        factor_dict = {}
 
+        # dictionary to collect all generated factor columns and their possible values
+        factor_dict = {}  
+
+        # read static metadata from user-defined parameters
         tab_name = self.table_name
         unique_col = self.unique_identifier
         name_col = self.factor_name
 
+        # initialize variables for value column and numeric boundaries
         value_col = ""
         min_val = 0
         max_val = 0
         step_val = 0
 
+        # handle configuration for string-type factors
         if self.factor_data_type == FactorDataType.STRING.name:
-            value_col = self.string_factor_value
+            value_col = self.string_factor_value  # column name that holds the factor values
 
+            # get user-defined string values from the parameter array
             string_val = [cfg.string_value for cfg in self.string_configuration]
+
+            # create a numeric mapping for the strings (e.g., {"0": "A", "1": "B", ...})
             map_strings_to_numeric = {str(i): val for i, val in enumerate(string_val)}
 
+            # store the mapping in flow variables so it can be used for reverse lookup or display later
             exec_context.flow_variables[f"factor-mapping_{value_col}"] = json.dumps(map_strings_to_numeric)
 
+            # define numeric range that corresponds to the number of string values
             min_val = 0
             max_val = len(string_val) - 1
             step_val = 1
 
+        # handle configuration for numeric-type factors
         elif self.factor_data_type == FactorDataType.NUMERIC.name:
             value_col = self.numeric_factor_value
             min_val = self.min_value
             max_val = self.max_value
             step_val = self.step_value
 
+        # extract unique (identifier, factor name) combinations from the input table
+        # these represent the rows for which we generate DoE variables
+        # remove duplicate rows → remove incomplete entries → convert to NumPy array of [identifier, factor name] pairs
         combinations = (
             input_df[[unique_col, name_col]]
-            .drop_duplicates()
-            .dropna()
-            .values
+            .drop_duplicates()  
+            .dropna()  
+            .values  
         )
 
+        # build a unique factor key and assign a range of values to it
+        # the key encodes table name and metadata for later reconstruction or parsing
         for unique_val, name_val in combinations:
             factor_name = (
                 f"{tab_name}"
@@ -201,9 +218,13 @@ class FactorRangeDOE:
                 f":[{name_col}]{name_val}"
                 f":{value_col}"
             )
-            values = list(range(min_val, max_val + 1, step_val))
+
+            # generate list of values → store under unique name
+            values = list(range(min_val, max_val + 1, step_val))  
             factor_dict[factor_name] = values
 
+        # convert the factor dictionary into a DataFrame where each column is a factor and rows are all possible values
         df = pd.DataFrame(factor_dict)
 
+        # return the DataFrame as a KNIME table
         return knext.Table.from_pandas(df)
