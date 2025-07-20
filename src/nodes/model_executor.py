@@ -1,6 +1,7 @@
 import logging
 import knime.extension as knext
-from utils import simulation_port as sp
+from utils import port
+from sim_ext import main_category
 import pandas as pd
 
 # setup logger
@@ -11,25 +12,38 @@ LOGGER = logging.getLogger(__name__)
     name="Simulation Model Executor",
     node_type=knext.NodeType.SINK,
     icon_path="icons/model.png",
-    category="/community/simulation"
+    category=main_category
 )
 
-@knext.input_port(name="Test", description="...", port_type=sp.simulation_port_type)
+@knext.input_port(
+    name="Simulation Model", 
+    description="The simulation model input port containing a reference to the model file", 
+    port_type=port.simulation_port_type
+)
+
+@knext.input_table(
+    name="Configuration Table", 
+    description="Optional input table containing simulation parameters or DoE configurations", 
+    optional=True
+)
 
 class ModelExecutorCustom:
-    """Short one-line description of the node.
-        ...
+    """Execute a simulation model using an external engine
+
+    This node takes a simulation model (e.g., AnyLogic, SimPy, or ASAP) and optionally a table
+    of configuration parameters or factor combinations, then runs the model accordingly.
+    The behavior adapts based on the selected simulation tool.
     """
 
     # configuration-time logic
-    def configure(self, configure_context, input_schema_1):
+    def configure(self, configure_context, input_schema_1, input_schema_2):
         configure_context.set_warning("This is a warning during configuration")
 
     # main execution logic
-    def execute(self, exec_context, input_1: sp.SimulationModelPort):
+    def execute(self, exec_context, input_1: port.SimulationModelPort, input_2):
         import os
         import platform
-        import subprocess
+        from utils import execute_simulation
 
         # get the file system path of the simulation model input
         model_path = input_1.path
@@ -42,7 +56,7 @@ class ModelExecutorCustom:
         resource_folder = exec_context.flow_variables.get("resource_folder")
 
         if not os_name or not resource_folder:
-            raise ValueError("Missing required flow variables: 'os_name' and/or 'resource_folder'.")        
+            raise ValueError("Missing required flow variables: 'os_name' and/or 'resource_folder'")        
 
         if not os.path.exists(resource_folder):
             raise FileNotFoundError(f"Resource folder not found: {resource_folder}")
@@ -51,40 +65,26 @@ class ModelExecutorCustom:
         simulation_tool = exec_context.flow_variables.get("simulation_tool")
 
         if simulation_tool == "ANYLOGIC":
-            if os_name == "Windows":
-                # locate and run the first .bat file found in the resource folder
-                bat_files = [f for f in os.listdir(resource_folder) if f.endswith(".bat")]
-                if not bat_files:
-                    raise FileNotFoundError("No .bat file found in the resource folder.")
+            try:
+                execute_simulation.run_anylogic(resource_folder)
+            except Exception as e:
+                LOGGER.error(f"AnyLogic execution failed: {e}")
+                raise
 
-                bat_path = os.path.join(resource_folder, bat_files[0])
-                LOGGER.info(f"Executing Windows batch file: {bat_path}")
-
-                subprocess.run(["cmd.exe", "/c", bat_path], check=True)
-
-            elif os_name == "Linux":
-                # locate and run the first .sh file found in the resource folder
-                sh_files = [f for f in os.listdir(resource_folder) if f.endswith(".sh")]
-                if not sh_files:
-                    raise FileNotFoundError("No .sh file found in the resource folder.")
-
-                sh_path = os.path.join(resource_folder, sh_files[0])
-                LOGGER.info(f"Executing Linux shell script: {sh_path}")
-
-                # ensure the shell script has executable permissions before running
-                os.chmod(sh_path, 0o755)
-                subprocess.run([sh_path], check=True)
-
-            else:
-                raise ValueError(f"Unsupported operating system: {os_name}")
         elif simulation_tool == "ASAP":
             print("hello world")
-            #do some magic
+            ######## todo ########
+
         elif simulation_tool == "SIMPY":
-            print("hello world")
-            #do some magic
-        else: 
+            try:
+                execute_simulation.run_simpy(exec_context, input_2, model_path, resource_folder)
+            except Exception as e:
+                LOGGER.error(f"SimPy execution failed: {e}")
+                raise
 
-            #comment
+        else:
+            # handle unknown or unsupported simulation tool values
+            LOGGER.error(f"Unsupported simulation tool: {simulation_tool}")
+            raise ValueError(f"Simulation tool '{simulation_tool}' is not supported")
 
-            return
+        return

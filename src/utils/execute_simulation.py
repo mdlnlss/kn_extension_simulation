@@ -1,0 +1,133 @@
+import os
+import subprocess
+import platform
+import logging
+
+LOGGER = logging.getLogger(__name__)
+
+# function to execute AnyLogic simulation via platform-specific script
+def run_anylogic(resource_folder):
+    os_name = platform.system()
+
+    if not os.path.exists(resource_folder):
+        raise FileNotFoundError(f"Resource folder not found: {resource_folder}")
+
+    if os_name == "Windows":
+        # look for .bat scripts in the resource folder
+        bat_files = [f for f in os.listdir(resource_folder) if f.endswith(".bat")]
+        if not bat_files:
+            raise FileNotFoundError("No .bat file found in the resource folder.")
+
+        bat_path = os.path.join(resource_folder, bat_files[0])
+        LOGGER.info(f"Executing Windows batch file: {bat_path}")
+
+        # execute the batch file
+        subprocess.run(["cmd.exe", "/c", bat_path], check=True)
+
+    elif os_name == "Linux":
+        # look for .sh scripts in the resource folder
+        sh_files = [f for f in os.listdir(resource_folder) if f.endswith(".sh")]
+        if not sh_files:
+            raise FileNotFoundError("No .sh file found in the resource folder.")
+
+        sh_path = os.path.join(resource_folder, sh_files[0])
+        LOGGER.info(f"Executing Linux shell script: {sh_path}")
+
+        # ensure shell script has execution permissions
+        os.chmod(sh_path, 0o755)
+        subprocess.run([sh_path], check=True)
+
+    else:
+        raise ValueError(f"Unsupported operating system: {os_name}")
+
+# function to execute a SimPy simulation script with parameter mapping from KNIME inputs and flow variables
+def run_simpy(exec_context, input_2, model_path, resource_folder):
+    simpy_args = []  # argument list to pass to the SimPy script
+
+    # get experiment name from flow variable or table
+    experiment = exec_context.flow_variables.get("experiment", "default_experiment")
+
+    # if input table is provided and contains experiment name, override flow variable
+    if input_2 is not None:
+        df = input_2.to_pandas()
+        if not df.empty and "EXPERIMENT" in df.columns:
+            experiment_from_table = df.iloc[0]["EXPERIMENT"]
+            if isinstance(experiment_from_table, str) and experiment_from_table.strip():
+                experiment = experiment_from_table
+
+    # prepare the experiment-specific output folder
+    experiment_dir = os.path.join(resource_folder, experiment)
+    os.makedirs(experiment_dir, exist_ok=True)
+
+    if input_2 is not None:
+        df = input_2.to_pandas()
+
+        if df.empty:
+            raise ValueError("Input table is empty.")
+
+        # take first configuration row
+        row = df.iloc[0]
+        configuration_value = row.get("CONFIGURATION", "unnamed_config")
+
+        # get default output name and determine fallback file extension
+        simpy_output = exec_context.flow_variables.get("simpy_output", "")
+        fallback_ext = ".csv"
+        for ext in [".csv", ".txt"]:
+            if ext in simpy_output:
+                fallback_ext = ext
+                break
+
+        output_set = False
+
+        # convert each relevant column in the row into a CLI argument
+        for col in df.columns:
+            if col.upper() not in {"EXPERIMENT", "CONFIGURATION"}:
+                value = row[col]
+
+                # handle user-defined output file if present
+                if col.lower() == "output":
+                    if isinstance(value, str) and value.strip().lower().endswith((".csv", ".txt")):
+                        value = os.path.join(experiment_dir, os.path.basename(value))
+                        output_set = True
+                    else:
+                        continue  # skip invalid output entries
+
+                # cast float values that are whole numbers to integers
+                elif isinstance(value, float) and value.is_integer():
+                    value = int(value)
+
+                simpy_args.append(f"--{col}")
+                simpy_args.append(str(value))
+
+        # if no output argument was defined explicitly, create a fallback one
+        if not output_set:
+            generated_output = os.path.join(experiment_dir, f"{configuration_value}{fallback_ext}")
+            simpy_args.append("--output")
+            simpy_args.append(generated_output)
+            LOGGER.info(f"Generated fallback output: {generated_output}")
+
+    else:
+        # no table input, try to pull full argument string from flow variable
+        simpy_output = exec_context.flow_variables.get("simpy_output")
+        if not simpy_output:
+            raise ValueError("Missing flow variable: simpy_output")
+
+        # attempt to redirect output file into experiment folder if present
+        if "--output" in simpy_output:
+            parts = simpy_output.split()
+            output_idx = parts.index("--output") + 1 if "--output" in parts else -1
+            if 0 < output_idx < len(parts):
+                raw_filename = os.path.basename(parts[output_idx])
+                redirected_path = os.path.join(experiment_dir, raw_filename)
+                parts[output_idx] = redirected_path
+                simpy_args = parts
+            else:
+                simpy_args = simpy_output.split()
+        else:
+            simpy_args = simpy_output.split()
+
+    # construct full command and execute the simulation script
+    cmd = ["python", model_path] + simpy_args
+    LOGGER.info(f"Running SimPy model: {' '.join(cmd)}")
+
+    subprocess.run(cmd, check=True)

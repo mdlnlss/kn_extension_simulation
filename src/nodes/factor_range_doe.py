@@ -1,24 +1,18 @@
 import logging
 import knime.extension as knext
+from sim_ext import main_category
+from utils import parameter_utils as parameters
 import pandas as pd
 import json
 
 # setup logger
 LOGGER = logging.getLogger(__name__)
 
-class FactorInputType(knext.EnumParameterOptions):
-    TABLEBASED = ("table-based", "...")
-    ARGUMENTBASED = ("argument-based", "...")
-
-class FactorDataType(knext.EnumParameterOptions):
-    STRING = ("String", "...")
-    NUMERIC = ("Numeric", "...")
-
 @knext.parameter_group(label="String Values")
 class StringFactorValues:
     string_value = knext.StringParameter(
         "String Value",
-        "..."
+        "Define a single categorical label to be used as a factor level (e.g., 'Low', 'Medium', 'High')"
     )
     
 # define the KNIME node
@@ -26,21 +20,33 @@ class StringFactorValues:
     name="Factor Range (DoE)",
     node_type=knext.NodeType.OTHER,
     icon_path="icons/try.png",
-    category="/community/simulation"
+    category=main_category
 )
 
-@knext.input_table(name="Input Data", description="...")
-@knext.output_table(name="Output Data", description="...")
+@knext.input_table(
+    name="Input Data", 
+    description="A table containing metadata to define experimental factors"
+)
+
+@knext.output_table(
+    name="Output Data", 
+    description="A table where each column is a factor and rows represent all value combinations for the experiment design"
+)
 
 class FactorRangeDOE:
-    """Short one-line description of the node.
-        This node enables ...
+    """Generate factor value ranges for use in Design of Experiments (DoE)
+    
+        This node enables the definition of factor levels for simulation experiments.
+        Based on either table-based metadata or manual input (argument-based), the node
+        generates a KNIME table representing possible values for each factor, which can
+        later be used to create experiment configurations.
     """
+
     factor_input_type = knext.EnumParameter(
         label="Input Type",
-        description="...",
-        default_value=FactorInputType.TABLEBASED.name,
-        enum=FactorInputType,
+        description="Select how metadata is provided: as a 'normal' data table or as arguments",
+        default_value=parameters.FactorInputType.TABLEBASED.name,
+        enum=parameters.FactorInputType,
         style=knext.EnumParameter.Style.VALUE_SWITCH,
     )
 
@@ -48,10 +54,10 @@ class FactorRangeDOE:
     # default value is set to "your_table"
     table_name = knext.StringParameter(
         "Table",
-        "...",
+        "Enter the name of the table to use as a prefix for factor identifiers",
         default_value="your_table"
     ).rule(
-        knext.OneOf(factor_input_type, [FactorInputType.TABLEBASED.name]),  
+        knext.OneOf(factor_input_type, [parameters.FactorInputType.TABLEBASED.name]),  
         knext.Effect.SHOW
     )
     
@@ -59,11 +65,11 @@ class FactorRangeDOE:
     # only string-type columns from the first input table (port_index=0) are selectable
     unique_identifier = knext.ColumnParameter(
         "Identifier Column",
-        "Select the column with your factor's unique identifier",
+        "Select the column containing a unique identifier for each factor",
         port_index=0,
         column_filter=lambda c: c.ktype == knext.string()
     ).rule(
-        knext.OneOf(factor_input_type, [FactorInputType.TABLEBASED.name]),  
+        knext.OneOf(factor_input_type, [parameters.FactorInputType.TABLEBASED.name]),  
         knext.Effect.SHOW
     )
 
@@ -71,11 +77,11 @@ class FactorRangeDOE:
     # only string-type columns are allowed, coming from the first input port
     factor_name = knext.ColumnParameter(
         "Name Column",
-        "Select the column with the factor name",
+        "Select the column that contains the name or type of the factor",
         port_index=0,
         column_filter=lambda c: c.ktype == knext.string()
     ).rule(
-        knext.OneOf(factor_input_type, [FactorInputType.TABLEBASED.name]),  
+        knext.OneOf(factor_input_type, [parameters.FactorInputType.TABLEBASED.name]),  
         knext.Effect.SHOW
     )
 
@@ -84,23 +90,23 @@ class FactorRangeDOE:
     # the UI uses a value switch to toggle between types
     factor_data_type = knext.EnumParameter(
         label="Data Type",
-        description="...",
-        default_value=FactorDataType.STRING.name,
-        enum=FactorDataType,
+        description="Specify whether the factor values are categorical (String) or numeric (Numeric)",
+        default_value=parameters.FactorDataType.STRING.name,
+        enum=parameters.FactorDataType,
         style=knext.EnumParameter.Style.VALUE_SWITCH,
     )
 
     # column parameter for STRING data type
     # this parameter appears only if the user selects "STRING" as the data type
     # it allows selecting a column from the first input port (port_index=0),
-    # and only shows columns with a string data type (e.g., categorical variables)
+    # only shown when the selected data type is STRING
     string_factor_value = knext.ColumnParameter(
         "Value Column",
-        "Select the column with the factor values",
+        "Select the column that contains the string-based factor values",
         port_index=0,
         column_filter=lambda c: c.ktype == knext.string()
     ).rule(
-        knext.OneOf(factor_data_type, [FactorDataType.STRING.name]),  
+        knext.OneOf(factor_data_type, [parameters.FactorDataType.STRING.name]),  
         knext.Effect.SHOW
     )
 
@@ -110,27 +116,27 @@ class FactorRangeDOE:
     # only shown when the selected data type is STRING
     string_configuration = knext.ParameterArray(
         label="String Values",
-        description="...",
+        description="Define the list of categorical values (levels) to be used for this string factor",
         parameters=StringFactorValues(),
         layout_direction=knext.LayoutDirection.VERTICAL,
         button_text="Add New String Value",
         array_title="String Value"
     ).rule(
-        knext.OneOf(factor_data_type, [FactorDataType.STRING.name]),  
+        knext.OneOf(factor_data_type, [parameters.FactorDataType.STRING.name]),  
         knext.Effect.SHOW
     )
 
     # column parameter for NUMERIC data type
     # this parameter appears only if the user selects "NUMERIC" as the data type
     # it allows selecting a column from the first input port, but excludes string columns
-    # useful for numeric factors such as time value or quantities 
+    # only shown when the selected data type is NUMERIC
     numeric_factor_value = knext.ColumnParameter(
         "Value Column",
-        "Select the column with the factor values",
+        "Select the column that contains the numeric factor values",
         port_index=0,
         column_filter=lambda c: c.ktype != knext.string()
     ).rule(
-        knext.OneOf(factor_data_type, [FactorDataType.NUMERIC.name]),  
+        knext.OneOf(factor_data_type, [parameters.FactorDataType.NUMERIC.name]),  
         knext.Effect.SHOW
     )
 
@@ -138,10 +144,10 @@ class FactorRangeDOE:
     # only shown when the selected data type is NUMERIC
     min_value = knext.IntParameter(
         "Minimum",
-        "...",
+        "Define the minimum numeric value to be included for this factor",
         default_value=0
     ).rule(
-        knext.OneOf(factor_data_type, [FactorDataType.NUMERIC.name]),
+        knext.OneOf(factor_data_type, [parameters.FactorDataType.NUMERIC.name]),
         knext.Effect.SHOW
     )
 
@@ -149,10 +155,10 @@ class FactorRangeDOE:
     # only shown when the selected data type is NUMERIC
     max_value = knext.IntParameter(
         "Maximum",
-        "...",
+        "Define the maximum numeric value to be included for this factor",
         default_value=1
     ).rule(
-        knext.OneOf(factor_data_type, [FactorDataType.NUMERIC.name]),
+        knext.OneOf(factor_data_type, [parameters.FactorDataType.NUMERIC.name]),
         knext.Effect.SHOW
     )
 
@@ -160,89 +166,85 @@ class FactorRangeDOE:
     # only shown when the selected data type is NUMERIC
     step_value = knext.IntParameter(
         "Step",
-        "...",
+        "Define the increment between values from minimum to maximum (inclusive)",
         default_value=1
     ).rule(
-        knext.OneOf(factor_data_type, [FactorDataType.NUMERIC.name]),
+        knext.OneOf(factor_data_type, [parameters.FactorDataType.NUMERIC.name]),
         knext.Effect.SHOW
     )
 
-
-    # configuration-time logic
     def configure(self, configure_context, input_schema_1):
         configure_context.set_warning("This is a warning during configuration")
 
-    # main execution logic
     def execute(self, exec_context, input_1):
+        from utils import factor_utils
 
-        # convert the input KNIME table to a pandas DataFrame
-        input_df = input_1.to_pandas()
+        # initialize the dictionary that will hold factor names as keys and their value ranges as lists
+        factor_dict = {}
 
-        # dictionary to collect all generated factor columns and their possible values
-        factor_dict = {}  
+        # handle the case where factor definitions are provided via input table metadata
+        if self.factor_input_type == parameters.FactorInputType.TABLEBASED.name:
+            # convert the input KNIME table to a pandas DataFrame
+            input_df = input_1.to_pandas()
 
-        # read static metadata from user-defined parameters
-        tab_name = self.table_name
-        unique_col = self.unique_identifier
-        name_col = self.factor_name
+            # retrieve user-defined metadata to construct factor identifiers
+            tab_name = self.table_name
+            unique_col = self.unique_identifier
+            name_col = self.factor_name
 
-        # initialize variables for value column and numeric boundaries
-        value_col = ""
-        min_val = 0
-        max_val = 0
-        step_val = 0
-
-        # handle configuration for string-type factors
-        if self.factor_data_type == FactorDataType.STRING.name:
-            value_col = self.string_factor_value  # column name that holds the factor values
-
-            # get user-defined string values from the parameter array
-            string_val = [cfg.string_value for cfg in self.string_configuration]
-
-            # create a numeric mapping for the strings (e.g., {"0": "A", "1": "B", ...})
-            map_strings_to_numeric = {str(i): val for i, val in enumerate(string_val)}
-
-            # store the mapping in flow variables so it can be used for reverse lookup or display later
-            exec_context.flow_variables[f"factor-mapping_{value_col}"] = json.dumps(map_strings_to_numeric)
-
-            # define numeric range that corresponds to the number of string values
-            min_val = 0
-            max_val = len(string_val) - 1
-            step_val = 1
-
-        # handle configuration for numeric-type factors
-        elif self.factor_data_type == FactorDataType.NUMERIC.name:
-            value_col = self.numeric_factor_value
-            min_val = self.min_value
-            max_val = self.max_value
-            step_val = self.step_value
-
-        # extract unique (identifier, factor name) combinations from the input table
-        # these represent the rows for which we generate DoE variables
-        # remove duplicate rows → remove incomplete entries → convert to NumPy array of [identifier, factor name] pairs
-        combinations = (
-            input_df[[unique_col, name_col]]
-            .drop_duplicates()  
-            .dropna()  
-            .values  
-        )
-
-        # build a unique factor key and assign a range of values to it
-        # the key encodes table name and metadata for later reconstruction or parsing
-        for unique_val, name_val in combinations:
-            factor_name = (
-                f"{tab_name}"
-                f":[{unique_col}]{unique_val}"
-                f":[{name_col}]{name_val}"
-                f":{value_col}"
+            # select the appropriate value column depending on the factor's data type
+            value_col = (
+                self.string_factor_value
+                if self.factor_data_type == parameters.FactorDataType.STRING.name
+                else self.numeric_factor_value
             )
 
-            # generate list of values → store under unique name
-            values = list(range(min_val, max_val + 1, step_val))  
-            factor_dict[factor_name] = values
+            # retrieve the value list and its range boundaries using utility function
+            values, min_val, max_val, step_val = factor_utils.get_values(self, exec_context, value_col)
 
-        # convert the factor dictionary into a DataFrame where each column is a factor and rows are all possible values
-        df = pd.DataFrame(factor_dict)
+            # extract all unique (identifier, factor name) pairs to define individual factors
+            # ensure each factor is processed only once → exclude rows with missing identifiers or names → convert to NumPy array for iteration
+            combinations = (
+                input_df[[unique_col, name_col]]
+                .drop_duplicates()  
+                .dropna()           
+                .values             
+            )
 
-        # return the DataFrame as a KNIME table
+            # generate a unique factor key for each combination and assign a value range to it
+            for unique_val, name_val in combinations:
+                factor_key = (
+                    f"{tab_name}"
+                    f":[{unique_col}]{unique_val}"
+                    f":[{name_col}]{name_val}"
+                    f":{value_col}"
+                )
+
+                # assign the generated range to the factor key
+                factor_dict[factor_key] = list(range(min_val, max_val + 1, step_val))
+
+            # convert the dictionary to a DataFrame (wide format: one column per factor)
+            df = pd.DataFrame(factor_dict)
+
+        # handle the case where the factor is defined manually via node arguments
+        elif self.factor_input_type == parameters.FactorInputType.ARGUMENTBASED.name:
+            value_col = (
+                self.string_factor_value
+                if self.factor_data_type == parameters.FactorDataType.STRING.name
+                else self.numeric_factor_value
+            )
+
+            # retrieve just the list of values for this standalone factor
+            values, _, _, _ = factor_utils.get_values(self, exec_context, value_col)
+
+            # build a single-column DataFrame for the defined values
+            df = pd.DataFrame({value_col: values})
+
+        # convert the pandas DataFrame back into a KNIME table and return it as output
         return knext.Table.from_pandas(df)
+
+
+# Gedanke #2: NUMERIC-Value Eingabe nochmal überdenken, falls es "definierte" Level gibt
+# hier dann ggf. auch eher ParameterArray → auf jeden Fall aus DoE-Node nochmal ansehen und ggf. anpassen
+
+# Gedanke #3: User-First, auch mit Falk und Co. ansehen und diskutieren

@@ -1,7 +1,8 @@
 import logging
-from typing import TextIO, BinaryIO
-from utils import simulation_port as sp, parameter_definition as pdef
 import knime.extension as knext
+from utils import parameter_utils as pdef, port
+from sim_ext import main_category
+from typing import TextIO, BinaryIO
 import pandas as pd
 
 
@@ -13,10 +14,10 @@ LOGGER = logging.getLogger(__name__)
     name="Simulation Model Importer",
     node_type=knext.NodeType.SOURCE,
     icon_path="icons/model.png",
-    category="/community/simulation"
+    category=main_category
 )
 
-@knext.output_port(name="Output Data", description="Result of simulation model setup.", port_type=sp.simulation_port_type)
+@knext.output_port(name="Output Data", description="Result of simulation model setup.", port_type=port.simulation_port_type)
 @knext.output_table(name="SimPy Arguments", description="...")
 
 class ModelImporterCustom:
@@ -210,7 +211,8 @@ class ModelImporterCustom:
                     start_index = next(i for i, line in enumerate(lines) if line.strip().lower() == "options:")
                     option_lines = lines[start_index + 1:]
                 except StopIteration:
-                    option_lines = lines  # fallback: parse all lines if 'options:' not found
+                    # fallback: parse all lines if 'options:' not found
+                    option_lines = lines  
 
                 # Combine wrapped lines into full logical lines
                 merged_lines = []
@@ -235,6 +237,7 @@ class ModelImporterCustom:
                 }
 
                 exec_context.flow_variables["simpy_help_output"] = json.dumps(argument_defaults)
+                exec_context.flow_variables["simpy_output"] = "--output " + self.simpy_output
                 LOGGER.info(f"Extracted SimPy defaults: {argument_defaults}")
 
             except subprocess.CalledProcessError as e:
@@ -249,9 +252,8 @@ class ModelImporterCustom:
                 try:
                     df_meta[col] = pd.to_numeric(df_meta[col], errors="raise")
                 except Exception:
-                    # Falls Umwandlung fehlschlägt, bleibe bei string
                     df_meta[col] = df_meta[col].astype(str)
 
-            return sp.SimulationModelPort(sp.SimulationModelSpec(), model_path), knext.Table.from_pandas(df_meta)
+            return port.SimulationModelPort(port.SimulationModelSpec(), model_path), knext.Table.from_pandas(df_meta)
         else:
-            return sp.SimulationModelPort(sp.SimulationModelSpec(), model_path), knext.Table.from_pandas(pd.DataFrame())
+            return port.SimulationModelPort(port.SimulationModelSpec(), model_path), knext.Table.from_pandas(pd.DataFrame())
