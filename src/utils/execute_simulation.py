@@ -40,6 +40,63 @@ def run_anylogic(resource_folder):
     else:
         raise ValueError(f"Unsupported operating system: {os_name}")
 
+# function to execute AutoSched AP simulation
+def run_asap(exec_context, model_path, resource_folder):
+    import subprocess as sp
+
+    # ensure the specified model file exists
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"ASAP model file not found at: {model_path}")
+
+    # ensure the resource folder exists
+    if not os.path.isdir(resource_folder):
+        raise FileNotFoundError(f"Resource folder not found: {resource_folder}")
+
+    # retrieve required flow variable that defines the number of simulation days
+    asap_days = exec_context.flow_variables.get("asap_days")
+    if asap_days is None:
+        raise ValueError("Missing flow variable: 'asap_days'")
+
+    # extract model name (without extension) to use in the ASAP CLI command
+    model_filename = os.path.basename(model_path)
+    model_name, _ = os.path.splitext(model_filename)
+
+    # construct the ASAP command
+    # -d[Integer:x] defines the simulation duration
+    # [model_name] refers to the simulation model file (by name, not full path)
+    cmd = [
+        "asap",
+        f"-d{asap_days}",
+        f"{model_name}"
+    ]
+
+    LOGGER.info(f"Executing ASAP model: {' '.join(cmd)}")
+    try:
+        # run the command inside the resource folder context
+        # set working directory to where the model and resources are
+        # capture stdout and stderr
+        # decode output as text instead of bytes
+        # raise an error if return code is non-zero
+        proc = sp.run(
+            cmd,
+            cwd=resource_folder,         
+            capture_output=True,
+            text=True,                   
+            check=True                   
+        )
+
+        # log standard output
+        LOGGER.info(f"ASAP output:\n{proc.stdout}")
+
+        # optionally log standard error if any
+        if proc.stderr:
+            LOGGER.warning(f"ASAP stderr:\n{proc.stderr}")
+
+    except sp.CalledProcessError as e:
+        # if subprocess fails, log the error output and re-raise the exception
+        LOGGER.error(f"ASAP execution failed:\n{e.stderr}")
+        raise
+
 # function to execute a SimPy simulation script with parameter mapping from KNIME inputs and flow variables
 def run_simpy(exec_context, input_2, model_path, resource_folder):
     simpy_args = []  # argument list to pass to the SimPy script

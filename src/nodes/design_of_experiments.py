@@ -12,7 +12,7 @@ LOGGER = logging.getLogger(__name__)
 @knext.node(
     name="Design of Experiments",
     node_type=knext.NodeType.MANIPULATOR,
-    icon_path="icons/try.png",
+    icon_path="icons/design of experiments.png",
     category=main_category
 )
 

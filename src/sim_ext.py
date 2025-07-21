@@ -5,7 +5,7 @@ main_category = knext.category(
     level_id="simulation",
     name="Simulation Studies",
     description="Python Nodes for Simulation Studies",
-    icon="icons/icon.png",
+    icon="icons/simulation.png",
 )
 
 from nodes import model_import

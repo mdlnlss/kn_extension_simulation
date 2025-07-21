@@ -11,7 +11,7 @@ LOGGER = logging.getLogger(__name__)
 @knext.node(
     name="Simulation Model Executor",
     node_type=knext.NodeType.SINK,
-    icon_path="icons/model.png",
+    icon_path="icons/simulation_execution.png",
     category=main_category
 )
 
@@ -72,8 +72,11 @@ class ModelExecutorCustom:
                 raise
 
         elif simulation_tool == "ASAP":
-            print("hello world")
-            ######## todo ########
+            try:
+                execute_simulation.run_asap(exec_context, model_path, resource_folder)
+            except Exception as e:
+                LOGGER.error(f"ASAP execution failed: {e}")
+                raise
 
         elif simulation_tool == "SIMPY":
             try:

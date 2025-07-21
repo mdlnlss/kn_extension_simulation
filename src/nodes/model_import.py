@@ -13,7 +13,7 @@ LOGGER = logging.getLogger(__name__)
 @knext.node(
     name="Simulation Model Importer",
     node_type=knext.NodeType.SOURCE,
-    icon_path="icons/model.png",
+    icon_path="icons/simulation_import.png",
     category=main_category
 )
 

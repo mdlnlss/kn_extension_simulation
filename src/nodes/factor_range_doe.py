@@ -17,9 +17,9 @@ class StringFactorValues:
     
 # define the KNIME node
 @knext.node(
-    name="Factor Range (DoE)",
+    name="Factor Definition (DoE)",
     node_type=knext.NodeType.OTHER,
-    icon_path="icons/try.png",
+    icon_path="icons/factor definition.png",
     category=main_category
 )
 
@@ -33,9 +33,9 @@ class StringFactorValues:
     description="A table where each column is a factor and rows represent all value combinations for the experiment design"
 )
 
-class FactorRangeDOE:
-    """Generate factor value ranges for use in Design of Experiments (DoE)
-    
+class FactorDefinitionDOE:
+    """Generate factor definitions and value ranges for use in Design of Experiments (DoE)
+
         This node enables the definition of factor levels for simulation experiments.
         Based on either table-based metadata or manual input (argument-based), the node
         generates a KNIME table representing possible values for each factor, which can
