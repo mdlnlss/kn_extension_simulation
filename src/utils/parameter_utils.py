@@ -17,6 +17,18 @@ class SimTools(knext.EnumParameterOptions):
         "Open-source process-based discrete-event simulation framework in Python"
     )
 
+# defines the available AnyLogic model types for execution
+class AnyLogicType(knext.EnumParameterOptions):
+    ALP = (
+        ".alp-file",
+        "An AnyLogic project file (.alp) used for execution (and editing) within the AnyLogic IDE"
+    )
+
+    JAR = (
+        ".jar-file",
+        "A compiled AnyLogic model (.jar) that can be executed directly without the IDE"
+    )
+
 # defines the structure in which factor inputs are provided to the simulation
 class FactorInputType(knext.EnumParameterOptions):
     TABLEBASED = (

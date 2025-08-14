@@ -37,6 +37,8 @@ class ModelExecutorCustom:
 
     # configuration-time logic
     def configure(self, configure_context, input_schema_1, input_schema_2):
+        #configure_context.set_warning(input_schema_1.path)
+
         configure_context.set_warning("This is a warning during configuration")
 
     # main execution logic
@@ -45,8 +47,9 @@ class ModelExecutorCustom:
         import platform
         from utils import execute_simulation
 
-        # get the file system path of the simulation model input
+        # get the file system path of the simulation model input (and the AnyLogic IDE)
         model_path = input_1.path
+        anylogic_path = input_1.al_path
 
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"Model path not found: {model_path}")
@@ -66,7 +69,7 @@ class ModelExecutorCustom:
 
         if simulation_tool == "ANYLOGIC":
             try:
-                execute_simulation.run_anylogic(resource_folder)
+                execute_simulation.run_anylogic(model_path, anylogic_path, resource_folder)
             except Exception as e:
                 LOGGER.error(f"AnyLogic execution failed: {e}")
                 raise
