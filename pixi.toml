@@ -7,6 +7,8 @@ platforms = ["win-64", "linux-64", "osx-64", "osx-arm64"]
 python = "3.11.*"
 knime-extension = "*"
 knime-python-base = "*"
+pydoe3 = ">=1.4.0,<2"
+scipy = ">=1.16.2,<2"
 
 [feature.build.dependencies]
 python = "3.9.*"
@@ -17,10 +19,4 @@ build = { args = [{ "arg" = "dest", "default" = "./local-update-site" }], cmd = 
 
 [environments]
 build = {features = ["build"], no-default-feature = true}
-
-[pypi-dependencies]
-diversipy = ">=0.9, <0.10"
-doepy = ">=0.0.1, <0.0.2"
-pydoe = ">=0.3.8, <0.4"
-scipy = ">=1.15.0, <2"
 

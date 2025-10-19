@@ -9,7 +9,7 @@ class SimTools(knext.EnumParameterOptions):
 
     ASAP = (
         "AutoSched AP", 
-        "Advanced Planning & Scheduling tool commonly used in semiconductor and manufacturing simulations"
+        "Advanced Planning and Scheduling tool commonly used in semiconductor and manufacturing simulations"
     )
 
     SIMPY = (
@@ -76,20 +76,8 @@ class ExperimentDesigns(knext.EnumParameterOptions):
         "Enhances Latin Hypercube Sampling to distribute samples more uniformly across the entire factor space"
     )
 
-    # generates random samples and applies k-means clustering to reduce them to representative configurations
-    RANDOMKMEANS = (
-        "Random k-Means", 
-        "Samples the factor space randomly and uses k-means clustering to identify representative configurations"
-    )
-
     # highly efficient screening design that reduces the number of experiments while detecting main effects
     PLACKETTBURMAN = (
         "Plackett-Burman", 
         "Creates an efficient screening design to identify influential factors with a minimal number of runs"
-    )
-
-    # uses a structured quasi-random grid for even distribution over the parameter space
-    SUKHAREDGRID = (
-        "Sukharev-Grid Hypercube", 
-        "Generates a quasi-random grid that fills the factor space with well-distributed sample points"
     )
