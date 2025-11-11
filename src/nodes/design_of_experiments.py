@@ -229,7 +229,8 @@ class DesignOfExperiments:
                     is_argument_based = len(parts) == 1
                     if is_argument_based:
                         table = "ARGUMENT"
-                        unique_col = unique_id = name_col = value_col = factor_name = col
+                        #unique_col = unique_id = name_col = value_col = factor_name = col
+                        unique_col = unique_id = value_col = col
                     else:
                         table = parts[0] if parts else "?"
                         label_map = {}
@@ -243,20 +244,21 @@ class DesignOfExperiments:
                                 value_col = part
                         labels_sorted = sorted(label_map.items())
                         unique_col, unique_id = labels_sorted[0] if labels_sorted else ("?", "?")
-                        name_col, factor_name = labels_sorted[1] if len(labels_sorted) > 1 else ("?", "?")
+                        #name_col, factor_name = labels_sorted[1] if len(labels_sorted) > 1 else ("?", "?")
                 except Exception as e:
                     LOGGER.warning(f"Failed to parse column name '{col}': {e}")
-                    table = unique_id = factor_name = value_col = unique_col = name_col = "?"
+                    #table = unique_id = factor_name = value_col = unique_col = name_col = "?"
+                    table = unique_id = value_col = unique_col = "?"
 
                 rows.append({
                     "EXPERIMENT": experiment_name,
                     "CONFIGURATION": configuration,
                     "TABLE": table,
                     "COL_UNIQUEID": unique_col,
-                    "COL_FACTOR": name_col,
+                    #"COL_FACTOR": name_col,
                     "COL_VALUE": value_col,
                     "UNIQUE IDENTIFIER": unique_id,
-                    "FACTOR": factor_name,
+                    #"FACTOR": factor_name,
                     "VALUES": row[col]
                 })
 

@@ -75,7 +75,7 @@ class FactorDefinitionDOE:
 
     # column parameter to select the column containing factor names
     # only string-type columns are allowed, coming from the first input port
-    factor_name = knext.ColumnParameter(
+    """factor_name = knext.ColumnParameter(
         "Name Column",
         "Select the column that contains the name or type of the factor",
         port_index=0,
@@ -83,7 +83,7 @@ class FactorDefinitionDOE:
     ).rule(
         knext.OneOf(factor_input_type, [parameters.FactorInputType.TABLEBASED.name]),  
         knext.Effect.SHOW
-    )
+    )"""
 
     # define a parameter to allow the user to select the expected data type of the factor column
     # the available types are defined in the FactorDataType enum (STRING, NUMERIC)
@@ -190,7 +190,7 @@ class FactorDefinitionDOE:
             # retrieve user-defined metadata to construct factor identifiers
             tab_name = self.table_name
             unique_col = self.unique_identifier
-            name_col = self.factor_name
+            #name_col = self.factor_name
 
             # select the appropriate value column depending on the factor's data type
             value_col = (
@@ -205,7 +205,7 @@ class FactorDefinitionDOE:
             # extract all unique (identifier, factor name) pairs to define individual factors
             # ensure each factor is processed only once → exclude rows with missing identifiers or names → convert to NumPy array for iteration
             combinations = (
-                input_df[[unique_col, name_col]]
+                input_df[[unique_col]] #, name_col
                 .drop_duplicates()  
                 .dropna()           
                 .values             
@@ -216,7 +216,7 @@ class FactorDefinitionDOE:
                 factor_key = (
                     f"{tab_name}"
                     f":[{unique_col}]{unique_val}"
-                    f":[{name_col}]{name_val}"
+                    #f":[{name_col}]{name_val}"
                     f":{value_col}"
                 )
 
