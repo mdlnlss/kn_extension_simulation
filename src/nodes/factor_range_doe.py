@@ -242,9 +242,3 @@ class FactorDefinitionDOE:
 
         # convert the pandas DataFrame back into a KNIME table and return it as output
         return knext.Table.from_pandas(df)
-
-
-# Gedanke #2: NUMERIC-Value Eingabe nochmal überdenken, falls es "definierte" Level gibt
-# hier dann ggf. auch eher ParameterArray → auf jeden Fall aus DoE-Node nochmal ansehen und ggf. anpassen
-
-# Gedanke #3: User-First, auch mit Falk und Co. ansehen und diskutieren

@@ -24,12 +24,12 @@ LOGGER = logging.getLogger(__name__)
 )
 
 @knext.output_table(
-    name="DoE Data", 
+    name="Wide-Format DoE Table", 
     description="A table in wide format where each row represents one configuration and each column is a factor"
 )
 
 @knext.output_table(
-    name="Flattened DoE Table", 
+    name="Long-Format DoE Table", 
     description="A long-format table where each row represents a single factor-value assignment for a specific configuration"
 )
 
@@ -271,7 +271,7 @@ class DesignOfExperiments:
         # ensure consistent string types for KNIME ports
         df_long["VALUES"] = df_long["VALUES"].astype(str)
         if df_long["TABLE"].eq("ARGUMENT").all():
-            df_long = df_long[["EXPERIMENT", "CONFIGURATION", "FACTOR", "VALUES"]]
+            df_long = df_long[["EXPERIMENT", "CONFIGURATION", "UNIQUE IDENTIFIER", "VALUES"]]
 
         # return both the wide-format design table and the long-format expanded representation
         return knext.Table.from_pandas(df_doe), knext.Table.from_pandas(df_long)

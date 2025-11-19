@@ -6,63 +6,50 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 # function to execute AnyLogic simulation via platform-specific script
-def run_anylogic(model_path, anylogic_path, resource_folder):
+def run_anylogic(model_path, resource_folder):
     os_name = platform.system()
 
-    if model_path.endswith(".alp"):
-        # Validate AnyLogic IDE path
-        if not os.path.exists(anylogic_path):
-            raise FileNotFoundError(f"AnyLogic executable not found: {anylogic_path}")
-        if not os.path.exists(model_path):
-            raise FileNotFoundError(f"AnyLogic .alp model not found: {model_path}")
-        
-        LOGGER.info(f"Launching AnyLogic IDE with model: {model_path}")
-        try:
-            subprocess.run([anylogic_path, '-r', model_path, "Simulation"], check=True)
-        except subprocess.CalledProcessError as e:
-            LOGGER.error(f"Failed to launch AnyLogic IDE: {e}")
-            raise
+
+    if not os.path.exists(resource_folder):
+        raise FileNotFoundError(f"Resource folder not found: {resource_folder}")
+
+    if os_name == "Windows":
+        # look for .bat scripts in the resource folder
+        bat_files = [f for f in os.listdir(resource_folder) if f.endswith(".bat")]
+        if not bat_files:
+            raise FileNotFoundError("No .bat file found in the resource folder.")
+
+        bat_path = os.path.join(resource_folder, bat_files[0])
+        LOGGER.info(f"Executing Windows batch file: {bat_path}")
+
+        # execute the batch file
+        subprocess.run(["cmd.exe", "/c", bat_path], check=True)
+
+    elif os_name == "Linux":
+        # look for .sh scripts in the resource folder
+        sh_files = [f for f in os.listdir(resource_folder) if f.endswith(".sh")]
+        if not sh_files:
+            raise FileNotFoundError("No .sh file found in the resource folder.")
+        sh_path = os.path.join(resource_folder, sh_files[0])
+        LOGGER.info(f"Executing Linux shell script: {sh_path}")
+        os.chmod(sh_path, 0o755)
+
+        # execute the shell file
+        subprocess.run([sh_path], check=True)
+
+    elif os_name == "Darwin":
+        # look for .sh scripts in the resource folder
+        sh_files = [f for f in os.listdir(resource_folder) if f.endswith(".sh")]
+        if not sh_files:
+            raise FileNotFoundError("No .sh file found in the resource folder.")
+        sh_path = os.path.join(resource_folder, sh_files[0])
+        LOGGER.info(f"Executing macOS shell script: {sh_path}")
+        os.chmod(sh_path, 0o755)
+
+        # execute the shell file
+        subprocess.run(["/bin/bash", sh_path], check=True)
     else:
-        if not os.path.exists(resource_folder):
-            raise FileNotFoundError(f"Resource folder not found: {resource_folder}")
-
-        if os_name == "Windows":
-            # look for .bat scripts in the resource folder
-            bat_files = [f for f in os.listdir(resource_folder) if f.endswith(".bat")]
-            if not bat_files:
-                raise FileNotFoundError("No .bat file found in the resource folder.")
-
-            bat_path = os.path.join(resource_folder, bat_files[0])
-            LOGGER.info(f"Executing Windows batch file: {bat_path}")
-
-            # execute the batch file
-            subprocess.run(["cmd.exe", "/c", bat_path], check=True)
-
-        elif os_name == "Linux":
-            # look for .sh scripts in the resource folder
-            sh_files = [f for f in os.listdir(resource_folder) if f.endswith(".sh")]
-            if not sh_files:
-                raise FileNotFoundError("No .sh file found in the resource folder.")
-            sh_path = os.path.join(resource_folder, sh_files[0])
-            LOGGER.info(f"Executing Linux shell script: {sh_path}")
-            os.chmod(sh_path, 0o755)
-
-            # execute the shell file
-            subprocess.run([sh_path], check=True)
-
-        elif os_name == "Darwin":
-            # look for .sh scripts in the resource folder
-            sh_files = [f for f in os.listdir(resource_folder) if f.endswith(".sh")]
-            if not sh_files:
-                raise FileNotFoundError("No .sh file found in the resource folder.")
-            sh_path = os.path.join(resource_folder, sh_files[0])
-            LOGGER.info(f"Executing macOS shell script: {sh_path}")
-            os.chmod(sh_path, 0o755)
-
-            # execute the shell file
-            subprocess.run(["/bin/bash", sh_path], check=True)
-        else:
-            raise ValueError(f"Unsupported operating system: {os_name}")
+        raise ValueError(f"Unsupported operating system: {os_name}")
 
 # function to execute AutoSched AP simulation
 def run_asap(exec_context, model_path, resource_folder):

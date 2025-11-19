@@ -51,20 +51,11 @@ class ModelImporterCustom:
         style=knext.EnumParameter.Style.DROPDOWN,
     )
 
-    # AnyLogic model file to execute
-    anylogic_file_type = knext.EnumParameter(
-        label="AnyLogic Model Type",
-        description="Choose whether to use a raw .alp project file for IDE execution or a compiled .jar file for direct execution",
-        default_value=pdef.AnyLogicType.ALP.name,
-        enum=pdef.AnyLogicType,
-        style=knext.EnumParameter.Style.VALUE_SWITCH,
-    ).rule(knext.OneOf(tool_choice, [pdef.SimTools.ANYLOGIC.name]), knext.Effect.SHOW)
-
     # AnyLogic model path input
     anylogic_model_path = knext.LocalPathParameter(
         label="Model Path", 
-        description="Enter a path to the model (.jar or .alp). The required syntax of the path depends on the chosen file system.",
-        placeholder_text="my/path/model.jar or my/path/model.alp"
+        description="Enter a path to the model (.jar).",
+        placeholder_text="my/path/model.jar"
     ).rule(knext.OneOf(tool_choice, [pdef.SimTools.ANYLOGIC.name]), knext.Effect.SHOW)
 
     # validation for AnyLogic model path
@@ -73,29 +64,8 @@ class ModelImporterCustom:
         # If path is empty, likely the field is hidden and unused
         if not path:
             return
-        if not (path.endswith(".jar") or path.endswith(".alp")):
-            raise ValueError("Invalid path: must end with '.jar' or '.alp'")
-
-    # AnyLogic IDE executable path (required for executing .alp project files)
-    anylogic_ide_path = knext.LocalPathParameter(
-        label="AnyLogic EXE Path",
-        description="Specify the full path to the AnyLogic IDE executable used to open or run .alp project files",
-        placeholder_text="C:/Program Files/AnyLogic 8.9 Personal Learning Edition/AnyLogic.exe"
-    ).rule(
-        knext.And(
-            knext.OneOf(tool_choice, [pdef.SimTools.ANYLOGIC.name]),
-            knext.OneOf(anylogic_file_type, [pdef.AnyLogicType.ALP.name])
-        ), 
-        knext.Effect.SHOW
-    )
-
-    @anylogic_ide_path.validator
-    def validate_al_ide_path(path: str):
-        # If path is empty, likely the field is hidden and unused
-        if not path:
-            return
-        if not path.endswith("AnyLogic.exe"):
-            raise ValueError("Invalid path: must end with 'AnyLogic.exe'")
+        if not path.endswith(".jar"):
+            raise ValueError("Invalid path: must end with '.jar'")
 
     # ASAP tool model path
     asap_model_path = knext.LocalPathParameter(
@@ -155,17 +125,16 @@ class ModelImporterCustom:
         import subprocess
         import re
         import json
+        import sys
 
         # simulation tool metadata as flow variables
         exec_context.flow_variables["simulation_tool"] = self.tool_choice
 
         # handle tool-specific model path (and AnyLogic IDE path)
         model_path = ""
-        anylogic_path = ""
 
         if self.tool_choice == pdef.SimTools.ANYLOGIC.name:
             model_path = self.anylogic_model_path
-            anylogic_path = self.anylogic_ide_path
         elif self.tool_choice == pdef.SimTools.ASAP.name:
             model_path = self.asap_model_path
         elif self.tool_choice == pdef.SimTools.SIMPY.name:
@@ -223,9 +192,11 @@ class ModelImporterCustom:
             if not os.path.exists(model_path):
                 raise FileNotFoundError(f"SimPy script not found in resource folder: {model_path}")
 
+            python_interpreter_path = sys.executable
+
             try:
                 result = subprocess.run(
-                    ["python", model_path, "--help"],
+                    [python_interpreter_path, model_path, "--help"],
                     check=True,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
@@ -286,6 +257,6 @@ class ModelImporterCustom:
                 except Exception:
                     df_meta[col] = df_meta[col].astype(str)
 
-            return port.SimulationModelPort(port.SimulationModelSpec(), model_path, anylogic_path), knext.Table.from_pandas(df_meta)
+            return port.SimulationModelPort(port.SimulationModelSpec(), model_path), knext.Table.from_pandas(df_meta)
         else:
-            return port.SimulationModelPort(port.SimulationModelSpec(), model_path, anylogic_path), knext.Table.from_pandas(pd.DataFrame())
+            return port.SimulationModelPort(port.SimulationModelSpec(), model_path), knext.Table.from_pandas(pd.DataFrame())
