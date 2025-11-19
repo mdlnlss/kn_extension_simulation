@@ -2,6 +2,7 @@ import os
 import subprocess
 import platform
 import logging
+import sys
 
 LOGGER = logging.getLogger(__name__)
 
@@ -194,8 +195,10 @@ def run_simpy(exec_context, input_2, model_path, resource_folder):
         else:
             simpy_args = simpy_output.split()
 
+    python_interpreter_path = sys.executable
+
     # construct full command and execute the simulation script
-    cmd = ["python", model_path] + simpy_args
+    cmd = [python_interpreter_path, model_path] + simpy_args
     LOGGER.info(f"Running SimPy model: {' '.join(cmd)}")
 
     subprocess.run(cmd, check=True)
