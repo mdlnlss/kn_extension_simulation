@@ -43,14 +43,24 @@ def run_anylogic(model_path, anylogic_path, resource_folder):
             sh_files = [f for f in os.listdir(resource_folder) if f.endswith(".sh")]
             if not sh_files:
                 raise FileNotFoundError("No .sh file found in the resource folder.")
-
             sh_path = os.path.join(resource_folder, sh_files[0])
             LOGGER.info(f"Executing Linux shell script: {sh_path}")
-
-            # ensure shell script has execution permissions
             os.chmod(sh_path, 0o755)
+
+            # execute the shell file
             subprocess.run([sh_path], check=True)
 
+        elif os_name == "Darwin":
+            # look for .sh scripts in the resource folder
+            sh_files = [f for f in os.listdir(resource_folder) if f.endswith(".sh")]
+            if not sh_files:
+                raise FileNotFoundError("No .sh file found in the resource folder.")
+            sh_path = os.path.join(resource_folder, sh_files[0])
+            LOGGER.info(f"Executing macOS shell script: {sh_path}")
+            os.chmod(sh_path, 0o755)
+
+            # execute the shell file
+            subprocess.run(["/bin/bash", sh_path], check=True)
         else:
             raise ValueError(f"Unsupported operating system: {os_name}")
 
