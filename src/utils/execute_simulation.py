@@ -3,202 +3,200 @@ import subprocess
 import platform
 import logging
 import sys
+import shutil
 
-LOGGER = logging.getLogger(__name__)
+# initialize the logger for the module
+logger = logging.getLogger(__name__)
 
-# function to execute AnyLogic simulation via platform-specific script
-def run_anylogic(model_path, resource_folder):
-    os_name = platform.system()
+# define supported file extensions for output handling
+allowed_extensions = (".csv", ".txt", ".xlsx", ".xls")
 
+def _get_current_date_string():
+    # fetch the current system date using subprocess to avoid importing additional packages
+    # uses powershell on windows and the date command on unix-based systems
+    try:
+        if platform.system() == "Windows":
+            cmd = ["powershell", "-command", "get-date -format 'yyyy-mm-dd'"]
+        else:
+            cmd = ["date", "+%y-%m-%d"]
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return result.stdout.strip()
+    except Exception:
+        # fallback string if the system command fails
+        return "unknown_date"
 
+def _get_paths(exec_context, input_2, resource_folder):
+    # consolidate path logic and determine the experiment naming convention
+    # extracts experiment and configuration names from knime flow variables or input tables
+    experiment = exec_context.flow_variables.get("experiment", "default_experiment")
+    config_value = "unnamed_config"
+
+    if input_2 is not None:
+        df = input_2.to_pandas()
+        if not df.empty:
+            if "experiment" in [c.lower() for c in df.columns]:
+                # search for the experiment column regardless of casing
+                col_name = [c for c in df.columns if c.lower() == "experiment"][0]
+                val = df.iloc[0][col_name]
+                if isinstance(val, str) and val.strip():
+                    experiment = val
+            
+            # get configuration name for fallback file naming
+            config_value = df.iloc[0].get("configuration", "unnamed_config")
+
+    # append the current date suffix if the run is identified as a default experiment
+    if "default" in experiment.lower():
+        today = _get_current_date_string()
+        experiment = f"{experiment}_{today}"
+
+    # define the target directory within a results folder next to resources
+    norm_res = os.path.normpath(resource_folder)
+    parent_dir = os.path.dirname(norm_res)
+    experiment_dir = os.path.join(parent_dir, "results", experiment)
+    
+    # ensure the results directory exists
+    os.makedirs(experiment_dir, exist_ok=True)
+    
+    return experiment, config_value, experiment_dir
+
+def run_anylogic(exec_context, input_2, resource_folder):
+    # execute anylogic simulation using platform-specific scripts and relocate outputs
+    _, config_value, experiment_dir = _get_paths(exec_context, input_2, resource_folder)
+    
+    # check for existence of the source resource folder
     if not os.path.exists(resource_folder):
-        raise FileNotFoundError(f"Resource folder not found: {resource_folder}")
+        raise filenotfounderror(f"resource folder not found: {resource_folder}")
 
-    if os_name == "Windows":
-        # look for .bat scripts in the resource folder
-        bat_files = [f for f in os.listdir(resource_folder) if f.endswith(".bat")]
-        if not bat_files:
-            raise FileNotFoundError("No .bat file found in the resource folder.")
-
-        bat_path = os.path.join(resource_folder, bat_files[0])
-        LOGGER.info(f"Executing Windows batch file: {bat_path}")
-
-        # execute the batch file
-        subprocess.run(["cmd.exe", "/c", bat_path], check=True)
-
-    elif os_name == "Linux":
-        # look for .sh scripts in the resource folder
-        sh_files = [f for f in os.listdir(resource_folder) if f.endswith(".sh")]
-        if not sh_files:
-            raise FileNotFoundError("No .sh file found in the resource folder.")
-        sh_path = os.path.join(resource_folder, sh_files[0])
-        LOGGER.info(f"Executing Linux shell script: {sh_path}")
-        os.chmod(sh_path, 0o755)
-
-        # execute the shell file
-        subprocess.run([sh_path], check=True)
-
-    elif os_name == "Darwin":
-        # look for .sh scripts in the resource folder
-        sh_files = [f for f in os.listdir(resource_folder) if f.endswith(".sh")]
-        if not sh_files:
-            raise FileNotFoundError("No .sh file found in the resource folder.")
-        sh_path = os.path.join(resource_folder, sh_files[0])
-        LOGGER.info(f"Executing macOS shell script: {sh_path}")
-        os.chmod(sh_path, 0o755)
-
-        # execute the shell file
-        subprocess.run(["/bin/bash", sh_path], check=True)
+    # identify the correct execution script based on the operating system
+    os_name = platform.system()
+    script_ext = ".bat" if os_name == "windows" else ".sh"
+    scripts = [f for f in os.listdir(resource_folder) if f.endswith(script_ext)]
+    
+    if not scripts:
+        raise filenotfounderror(f"no {script_ext} file found in {resource_folder}")
+    
+    script_path = os.path.join(resource_folder, scripts[0])
+    
+    # prepare the command and set execution permissions for unix systems
+    if os_name == "windows":
+        cmd = ["cmd.exe", "/c", script_path]
     else:
-        raise ValueError(f"Unsupported operating system: {os_name}")
+        os.chmod(script_path, 0o755)
+        cmd = ["/bin/bash", script_path] if os_name == "darwin" else [script_path]
 
-# function to execute AutoSched AP simulation
+    logger.info(f"starting anylogic simulation: {script_path}")
+    
+    # run simulation using the resource folder as the working directory
+    subprocess.run(cmd, check=True, cwd=resource_folder)
+
+    # determine the expected output filename from flow variables or default configuration
+    flow_out = exec_context.flow_variables.get("output_file", "")
+    
+    # find the appropriate extension by checking against allowed formats
+    target_ext = ".csv"
+    for ext in allowed_extensions:
+        if flow_out.lower().endswith(ext):
+            target_ext = ext
+            break
+
+    # build the source and destination paths for file relocation
+    raw_filename = os.path.basename(flow_out) if flow_out else f"{config_value}{target_ext}"
+    source_path = os.path.join(resource_folder, raw_filename)
+    dest_path = os.path.join(experiment_dir, raw_filename)
+
+    # move the generated file or attempt to find alternative results in the folder
+    if os.path.exists(source_path):
+        shutil.move(source_path, dest_path)
+        logger.info(f"moved output to: {dest_path}")
+    else:
+        logger.warning(f"primary output not found, scanning for alternative result files")
+        for f in os.listdir(resource_folder):
+            if f.lower().endswith(allowed_extensions):
+                shutil.move(os.path.join(resource_folder, f), os.path.join(experiment_dir, f))
+                logger.info(f"auto-detected and moved: {f}")
+
 def run_asap(exec_context, model_path, resource_folder):
-    import subprocess as sp
-
-    # ensure the specified model file exists
+    # execute autosched ap simulation with duration parameters
     if not os.path.exists(model_path):
-        raise FileNotFoundError(f"ASAP model file not found at: {model_path}")
+        raise filenotfounderror(f"asap model file missing: {model_path}")
 
-    # ensure the resource folder exists
-    if not os.path.isdir(resource_folder):
-        raise FileNotFoundError(f"Resource folder not found: {resource_folder}")
-
-    # retrieve required flow variable that defines the number of simulation days
+    # retrieve simulation duration from knime flow variables
     asap_days = exec_context.flow_variables.get("asap_days")
     if asap_days is None:
-        raise ValueError("Missing flow variable: 'asap_days'")
+        raise valueerror("missing flow variable: asap_days")
 
-    # extract model name (without extension) to use in the ASAP CLI command
-    model_filename = os.path.basename(model_path)
-    model_name, _ = os.path.splitext(model_filename)
+    # extract model name without extension for the command line interface
+    model_name = os.path.splitext(os.path.basename(model_path))[0]
+    cmd = ["asap", f"-d{asap_days}", model_name]
 
-    # construct the ASAP command
-    # -d[Integer:x] defines the simulation duration
-    # [model_name] refers to the simulation model file (by name, not full path)
-    cmd = [
-        "asap",
-        f"-d{asap_days}",
-        f"{model_name}"
-    ]
-
-    LOGGER.info(f"Executing ASAP model: {' '.join(cmd)}")
+    logger.info(f"executing asap model: {' '.join(cmd)}")
     try:
-        # run the command inside the resource folder context
-        # set working directory to where the model and resources are
-        # capture stdout and stderr
-        # decode output as text instead of bytes
-        # raise an error if return code is non-zero
-        proc = sp.run(
-            cmd,
-            cwd=resource_folder,         
-            capture_output=True,
-            text=True,                   
-            check=True                   
-        )
-
-        # log standard output
-        LOGGER.info(f"ASAP output:\n{proc.stdout}")
-
-        # optionally log standard error if any
-        if proc.stderr:
-            LOGGER.warning(f"ASAP stderr:\n{proc.stderr}")
-
-    except sp.CalledProcessError as e:
-        # if subprocess fails, log the error output and re-raise the exception
-        LOGGER.error(f"ASAP execution failed:\n{e.stderr}")
+        # run the command and capture output for logging
+        proc = subprocess.run(cmd, cwd=resource_folder, capture_output=True, text=True, check=True)
+        if proc.stdout:
+            logger.info(f"asap output: {proc.stdout}")
+    except subprocess.calledprocesserror as e:
+        logger.error(f"asap execution failed: {e.stderr}")
         raise
 
-# function to execute a SimPy simulation script with parameter mapping from KNIME inputs and flow variables
 def run_simpy(exec_context, input_2, model_path, resource_folder):
-    simpy_args = []  # argument list to pass to the SimPy script
-
-    # get experiment name from flow variable or table
-    experiment = exec_context.flow_variables.get("experiment", "default_experiment")
-
-    # if input table is provided and contains experiment name, override flow variable
-    if input_2 is not None:
-        df = input_2.to_pandas()
-        if not df.empty and "EXPERIMENT" in df.columns:
-            experiment_from_table = df.iloc[0]["EXPERIMENT"]
-            if isinstance(experiment_from_table, str) and experiment_from_table.strip():
-                experiment = experiment_from_table
-
-    # prepare the experiment-specific output folder
-    experiment_dir = os.path.join(resource_folder, experiment)
-    os.makedirs(experiment_dir, exist_ok=True)
+    # run simpy simulation and map input table columns to command line arguments
+    _, config_value, experiment_dir = _get_paths(exec_context, input_2, resource_folder)
+    simpy_args = []
 
     if input_2 is not None:
         df = input_2.to_pandas()
-
         if df.empty:
-            raise ValueError("Input table is empty.")
+            raise valueerror("input table is empty")
 
-        # take first configuration row
         row = df.iloc[0]
-        configuration_value = row.get("CONFIGURATION", "unnamed_config")
-
-        # get default output name and determine fallback file extension
-        simpy_output = exec_context.flow_variables.get("simpy_output", "")
+        
+        # determine the preferred file extension for the output
+        flow_out = exec_context.flow_variables.get("output_file", "")
         fallback_ext = ".csv"
-        for ext in [".csv", ".txt"]:
-            if ext in simpy_output:
+        for ext in allowed_extensions:
+            if flow_out.lower().endswith(ext):
                 fallback_ext = ext
                 break
 
         output_set = False
-
-        # convert each relevant column in the row into a CLI argument
+        # iterate through columns to build command line flags
         for col in df.columns:
-            if col.upper() not in {"EXPERIMENT", "CONFIGURATION"}:
-                value = row[col]
+            if col.upper() in {"EXPERIMENT", "CONFIGURATION"}:
+                continue
+            
+            val = row[col]
+            # redirect output path to the specific experiment directory
+            if col.lower() == "output":
+                if isinstance(val, str) and val.lower().endswith(allowed_extensions):
+                    val = os.path.join(experiment_dir, os.path.basename(val))
+                    output_set = True
+                else:
+                    continue
+            
+            # ensure whole numbers are passed as integers rather than floats
+            elif isinstance(val, float) and val.is_integer():
+                val = int(val)
 
-                # handle user-defined output file if present
-                if col.lower() == "output":
-                    if isinstance(value, str) and value.strip().lower().endswith((".csv", ".txt")):
-                        value = os.path.join(experiment_dir, os.path.basename(value))
-                        output_set = True
-                    else:
-                        continue  # skip invalid output entries
+            simpy_args.extend([f"--{col}", str(val)])
 
-                # cast float values that are whole numbers to integers
-                elif isinstance(value, float) and value.is_integer():
-                    value = int(value)
-
-                simpy_args.append(f"--{col}")
-                simpy_args.append(str(value))
-
-        # if no output argument was defined explicitly, create a fallback one
+        # ensure an output argument is present even if not defined in the table
         if not output_set:
-            generated_output = os.path.join(experiment_dir, f"{configuration_value}{fallback_ext}")
-            simpy_args.append("--output")
-            simpy_args.append(generated_output)
-            LOGGER.info(f"Generated fallback output: {generated_output}")
-
+            simpy_args.extend(["--output", os.path.join(experiment_dir, f"{config_value}{fallback_ext}")])
     else:
-        # no table input, try to pull full argument string from flow variable
-        simpy_output = exec_context.flow_variables.get("simpy_output")
-        if not simpy_output:
-            raise ValueError("Missing flow variable: simpy_output")
+        # handle case where only flow variables are used for simulation arguments
+        raw_output = exec_context.flow_variables.get("output_file")
+        if raw_output:
+            parts = raw_output.split()
+            if "--output" in parts:
+                idx = parts.index("--output") + 1
+                if idx < len(parts):
+                    # update the output path within the argument list
+                    parts[idx] = os.path.join(experiment_dir, os.path.basename(parts[idx]))
+            simpy_args = parts
 
-        # attempt to redirect output file into experiment folder if present
-        if "--output" in simpy_output:
-            parts = simpy_output.split()
-            output_idx = parts.index("--output") + 1 if "--output" in parts else -1
-            if 0 < output_idx < len(parts):
-                raw_filename = os.path.basename(parts[output_idx])
-                redirected_path = os.path.join(experiment_dir, raw_filename)
-                parts[output_idx] = redirected_path
-                simpy_args = parts
-            else:
-                simpy_args = simpy_output.split()
-        else:
-            simpy_args = simpy_output.split()
-
-    python_interpreter_path = sys.executable
-
-    # construct full command and execute the simulation script
-    cmd = [python_interpreter_path, model_path] + simpy_args
-    LOGGER.info(f"Running SimPy model: {' '.join(cmd)}")
-
+    # assemble the final command using the current python interpreter
+    cmd = [sys.executable, model_path] + simpy_args
+    logger.info(f"running simpy model: {' '.join(cmd)}")
     subprocess.run(cmd, check=True)

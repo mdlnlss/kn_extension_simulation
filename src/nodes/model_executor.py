@@ -68,7 +68,7 @@ class ModelExecutorCustom:
 
         if simulation_tool == "ANYLOGIC":
             try:
-                execute_simulation.run_anylogic(model_path, resource_folder)
+                execute_simulation.run_anylogic(exec_context, input_2, resource_folder)
             except Exception as e:
                 LOGGER.error(f"AnyLogic execution failed: {e}")
                 raise

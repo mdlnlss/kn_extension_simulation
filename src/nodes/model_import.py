@@ -107,13 +107,22 @@ class ModelImporterCustom:
         if not path.endswith(".py"):
             raise ValueError ("Invalid path: must end with '.py'")
 
-    # output file name for SimPy
-    simpy_output = knext.StringParameter(
-        label="Output file",
-        description="File name",
-        default_value="simpy_output.csv"
-    ).rule(knext.OneOf(tool_choice, [pdef.SimTools.SIMPY.name]), knext.Effect.SHOW)
+    # output type
+    simulation_output = knext.EnumParameter(
+        label="Output Type",
+        description="...",
+        default_value=pdef.SimulationOutputType.FILEBASED.name,
+        enum=pdef.SimulationOutputType,
+        style=knext.EnumParameter.Style.VALUE_SWITCH,
+    )
 
+    # output file name / before: simpy_output
+    output_file = knext.StringParameter(
+        label="Output Filename",
+        description="Name of the file to be generated (e.g. results.csv).",
+        default_value="output.csv"
+    ).rule(knext.OneOf(simulation_output, [pdef.SimulationOutputType.FILEBASED.name]), knext.Effect.SHOW)
+    
     # configuration-time logic
     def configure(self, configure_context):
         configure_context.set_warning("This is a warning during configuration")
@@ -126,137 +135,82 @@ class ModelImporterCustom:
         import re
         import json
         import sys
+        import pandas as pd
 
-        # simulation tool metadata as flow variables
-        exec_context.flow_variables["simulation_tool"] = self.tool_choice
+        # path Mapping
+        tool_paths = {
+            pdef.SimTools.ANYLOGIC.name: self.anylogic_model_path,
+            pdef.SimTools.ASAP.name: self.asap_model_path,
+            pdef.SimTools.SIMPY.name: self.simpy_model_path
+        }
+        
+        selected_path = tool_paths.get(self.tool_choice, "")
 
-        # handle tool-specific model path (and AnyLogic IDE path)
-        model_path = ""
+        if not selected_path or not os.path.isfile(selected_path):
+            raise FileNotFoundError(f"Model file not found: {selected_path}")
+
+        # workspace navigation
+        workflow_data_dir = exec_context.get_workflow_data_area_dir()
+        workspace_folder_dir = os.path.abspath(os.path.join(workflow_data_dir, "..", ".."))
+        created_folder_dir = os.path.join(workspace_folder_dir, "Resources")
+
+        exec_context.flow_variables.update({
+            "simulation_tool": self.tool_choice,
+            "output_mode": self.simulation_output,
+            "workflow_folder_dir": workspace_folder_dir,
+            "resource_folder": created_folder_dir
+        })
+
+        # safe resource preparation
+        os.makedirs(created_folder_dir, exist_ok=True)
+
+        # copy model files
+        model_dir = os.path.dirname(selected_path)
+        try:
+            # dirs_exist_ok=True allows copying into an existing directory and overwriting files
+            shutil.copytree(model_dir, created_folder_dir, dirs_exist_ok=True)
+            LOGGER.info(f"Updated resources in {created_folder_dir}")
+        except Exception as e:
+            LOGGER.warning(f"Could not overwrite some files in {created_folder_dir}: {e}")
+            # continue anyway; if the model file itself is updated, the simulation should work
+
+        model_path_in_res = os.path.join(created_folder_dir, os.path.basename(selected_path))
+        exec_context.flow_variables["model_path"] = model_path_in_res
+
+        # tool-specific logic
+        argument_defaults = {}
 
         if self.tool_choice == pdef.SimTools.ANYLOGIC.name:
-            model_path = self.anylogic_model_path
-        elif self.tool_choice == pdef.SimTools.ASAP.name:
-            model_path = self.asap_model_path
+            if self.simulation_output == pdef.SimulationOutputType.FILEBASED.name:
+                exec_context.flow_variables["output_file"] = self.output_file
+
         elif self.tool_choice == pdef.SimTools.SIMPY.name:
-            model_path = self.simpy_model_path
-
-        # derive paths for resource and workspace directories
-        workflow_data_dir = exec_context.get_workflow_data_area_dir()
-        workspace_folder_dir = os.path.dirname(os.path.dirname(workflow_data_dir))
-        exec_context.flow_variables["workflow_folder_dir"] = workspace_folder_dir
-
-        # prepare the resource folder
-        created_folder_dir = os.path.join(workspace_folder_dir, "Resources")
-        os.makedirs(created_folder_dir, exist_ok=True)
-        exec_context.flow_variables["resource_folder"] = created_folder_dir
-    
-        # copy model files to the resource folder
-        if model_path:
-            # empty folder
-            for filename in os.listdir(created_folder_dir):
-                file_path = os.path.join(created_folder_dir, filename)
-                try:
-                    if os.path.isfile(file_path) or os.path.islink(file_path):
-                        os.unlink(file_path)
-                    elif os.path.isdir(file_path):
-                        shutil.rmtree(file_path)
-                except Exception as e:
-                    LOGGER.error(f"Error deleting {file_path}: {e}")
-
-            # copy files from model path
-            model_dir = os.path.dirname(model_path)
-
-            for item in os.listdir(model_dir):
-                src = os.path.join(model_dir, item)
-                dst = os.path.join(created_folder_dir, item)
-                try:
-                    if os.path.isdir(src):
-                        shutil.copytree(src, dst)
-                        LOGGER.warning(f"Copy folder: {src} -> {dst}")
-                    elif os.path.isfile(src):
-                        shutil.copy2(src, dst)
-                        LOGGER.warning(f"Copy file: {src} -> {dst}")
-                except Exception as e:
-                    LOGGER.error(f"Error copying {src} to {dst}: {e}")
-
-        # validate model path exists before proceeding
-        if not os.path.isfile(model_path):
-            raise FileNotFoundError(f"Model file not found: {model_path}")
-        
-        # model path in resource folder
-        model_path = os.path.join(created_folder_dir, os.path.basename(model_path))
-        exec_context.flow_variables["model_path"] = model_path
-
-        if self.tool_choice == pdef.SimTools.SIMPY.name:
-
-            if not os.path.exists(model_path):
-                raise FileNotFoundError(f"SimPy script not found in resource folder: {model_path}")
-
-            python_interpreter_path = sys.executable
-
             try:
                 result = subprocess.run(
-                    [python_interpreter_path, model_path, "--help"],
-                    check=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True
+                    [sys.executable, model_path_in_res, "--help"],
+                    capture_output=True, text=True, check=True
                 )
-
-                help_output = result.stdout.strip() or result.stderr.strip()
-                LOGGER.info(f"SimPy script help output:\n{help_output}")
-
-                # extract arguments and their default values from help output
-                lines = help_output.splitlines()
-
-                # Only consider lines after the "options:" section
-                try:
-                    start_index = next(i for i, line in enumerate(lines) if line.strip().lower() == "options:")
-                    option_lines = lines[start_index + 1:]
-                except StopIteration:
-                    # fallback: parse all lines if 'options:' not found
-                    option_lines = lines  
-
-                # Combine wrapped lines into full logical lines
-                merged_lines = []
-                current = ""
-
-                for line in option_lines:
-                    if line.strip().startswith("--"):
-                        if current:
-                            merged_lines.append(current)
-                        current = line.strip()
-                    elif current:
-                        current += " " + line.strip()
-                if current:
-                    merged_lines.append(current)
-
-                # Now extract args with defaults
-                pattern = r"--([\w\-]+)[^\n]*\(default:\s*([^)]+)\)"
-                argument_defaults = {
-                    match.group(1): [match.group(2).strip()]
-                    for line in merged_lines
-                    if (match := re.search(pattern, line))
-                }
+                help_output = result.stdout or result.stderr
+                
+                # parsing logic
+                clean_output = " ".join(help_output.splitlines())
+                pattern = r"--([\w\-]+).*?\(default:\s*([^)]+)\)"
+                matches = re.findall(pattern, clean_output)
+                argument_defaults = {k: [v.strip()] for k, v in matches}
 
                 exec_context.flow_variables["simpy_help_output"] = json.dumps(argument_defaults)
-                exec_context.flow_variables["simpy_output"] = "--output " + self.simpy_output
-                LOGGER.info(f"Extracted SimPy defaults: {argument_defaults}")
-
+                
+                if self.simulation_output == pdef.SimulationOutputType.FILEBASED.name:
+                    exec_context.flow_variables["output_file"] = f"--output {self.output_file}"
+                    
             except subprocess.CalledProcessError as e:
-                LOGGER.error(f"Error while executing SimPy script with --help: {e.stderr}")
+                LOGGER.error(f"SimPy help execution failed: {e.stderr}")
                 raise
 
-        if self.tool_choice == pdef.SimTools.SIMPY.name:
-            # convert to DataFrame
+        # return values
+        if self.tool_choice == pdef.SimTools.SIMPY.name and argument_defaults:
             df_meta = pd.DataFrame.from_dict(argument_defaults)
-
-            for col in df_meta.columns:
-                try:
-                    df_meta[col] = pd.to_numeric(df_meta[col], errors="raise")
-                except Exception:
-                    df_meta[col] = df_meta[col].astype(str)
-
-            return port.SimulationModelPort(port.SimulationModelSpec(), model_path), knext.Table.from_pandas(df_meta)
-        else:
-            return port.SimulationModelPort(port.SimulationModelSpec(), model_path), knext.Table.from_pandas(pd.DataFrame())
+            df_meta = df_meta.apply(pd.to_numeric, errors='ignore')
+            return port.SimulationModelPort(port.SimulationModelSpec(), model_path_in_res), knext.Table.from_pandas(df_meta)
+        
+        return port.SimulationModelPort(port.SimulationModelSpec(), model_path_in_res), knext.Table.from_pandas(pd.DataFrame())
