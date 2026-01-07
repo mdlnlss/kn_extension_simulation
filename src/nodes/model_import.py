@@ -18,7 +18,7 @@ LOGGER = logging.getLogger(__name__)
 )
 
 @knext.output_port(name="Output Data", description="Result of simulation model setup.", port_type=port.simulation_port_type)
-@knext.output_table(name="SimPy Arguments", description="...")
+@knext.output_table_group(name="SimPy Arguments", description="...")
 
 class ModelImporterCustom:
     """Short one-line description of the node.
@@ -116,16 +116,28 @@ class ModelImporterCustom:
         style=knext.EnumParameter.Style.VALUE_SWITCH,
     )
 
-    # output file name / before: simpy_output
+    # output file name
     output_file = knext.StringParameter(
         label="Output Filename",
         description="Name of the file to be generated (e.g. results.csv).",
         default_value="output.csv"
     ).rule(knext.OneOf(simulation_output, [pdef.SimulationOutputType.FILEBASED.name]), knext.Effect.SHOW)
     
-    # configuration-time logic
+    # configuration time logic
     def configure(self, configure_context):
-        configure_context.set_warning("This is a warning during configuration")
+        port_numbers  = configure_context.get_connected_output_port_numbers()
+
+        if self.tool_choice == pdef.SimTools.SIMPY.name:
+            if port_numbers[1] < 1:
+                raise ValueError("SimPy requires at least one connected output port in the 'SimPy Arguments' group to provide input arguments.")
+        else:
+            if port_numbers[1] > 0:
+                raise ValueError("Please delete all connected output ports in the 'Simpy Arguments' group.")
+        
+        return (
+            port.SimulationModelSpec(), 
+            [knext.Schema(names=[], ktypes=[])]*port_numbers[1],
+        )
 
     # main execution logic
     def execute(self, exec_context):
@@ -207,10 +219,18 @@ class ModelImporterCustom:
                 LOGGER.error(f"SimPy help execution failed: {e.stderr}")
                 raise
 
+        port_numbers = exec_context.get_connected_output_port_numbers()
+
         # return values
         if self.tool_choice == pdef.SimTools.SIMPY.name and argument_defaults:
             df_meta = pd.DataFrame.from_dict(argument_defaults)
             df_meta = df_meta.apply(pd.to_numeric, errors='ignore')
-            return port.SimulationModelPort(port.SimulationModelSpec(), model_path_in_res), knext.Table.from_pandas(df_meta)
+            return (
+                port.SimulationModelPort(port.SimulationModelSpec(), model_path_in_res), 
+                [knext.Table.from_pandas(df_meta)] *port_numbers[1],
+            )
         
-        return port.SimulationModelPort(port.SimulationModelSpec(), model_path_in_res), knext.Table.from_pandas(pd.DataFrame())
+        return (
+            port.SimulationModelPort(port.SimulationModelSpec(), model_path_in_res), 
+            [knext.Table.from_pandas(pd.DataFrame())] * port_numbers[1],
+        )
