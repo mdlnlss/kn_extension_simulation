@@ -16,7 +16,7 @@ def _get_current_date_string():
     # uses powershell on windows and the date command on unix-based systems
     try:
         if platform.system() == "Windows":
-            cmd = ["powershell", "-command", "get-date -format 'yyyy-mm-dd'"]
+            cmd = ["powershell", "-command", "get-date -format 'yyyy-MM-dd'"]
         else:
             cmd = ["date", "+%y-%m-%d"]
         
@@ -26,7 +26,7 @@ def _get_current_date_string():
         # fallback string if the system command fails
         return "unknown_date"
 
-def _get_paths(exec_context, input_2, resource_folder):
+def _get_paths(exec_context, input_2, resource_folder, tool):
     # consolidate path logic and determine the experiment naming convention
     # extracts experiment and configuration names from knime flow variables or input tables
     experiment = exec_context.flow_variables.get("experiment", "default_experiment")
@@ -43,7 +43,7 @@ def _get_paths(exec_context, input_2, resource_folder):
                     experiment = val
             
             # get configuration name for fallback file naming
-            config_value = df.iloc[0].get("configuration", "unnamed_config")
+            config_value = df.iloc[0].get("CONFIGURATION", "unnamed_config")
 
     # append the current date suffix if the run is identified as a default experiment
     if "default" in experiment.lower():
@@ -53,7 +53,7 @@ def _get_paths(exec_context, input_2, resource_folder):
     # define the target directory within a results folder next to resources
     norm_res = os.path.normpath(resource_folder)
     parent_dir = os.path.dirname(norm_res)
-    experiment_dir = os.path.join(parent_dir, "results", experiment)
+    experiment_dir = os.path.join(parent_dir, "results", tool, experiment)
     
     # ensure the results directory exists
     os.makedirs(experiment_dir, exist_ok=True)
@@ -62,7 +62,7 @@ def _get_paths(exec_context, input_2, resource_folder):
 
 def run_anylogic(exec_context, input_2, resource_folder):
     # execute anylogic simulation using platform-specific scripts and relocate outputs
-    _, config_value, experiment_dir = _get_paths(exec_context, input_2, resource_folder)
+    _, config_value, experiment_dir = _get_paths(exec_context, input_2, resource_folder, "AnyLogic")
     
     # check for existence of the source resource folder
     if not os.path.exists(resource_folder):
@@ -116,6 +116,8 @@ def run_anylogic(exec_context, input_2, resource_folder):
                 shutil.move(os.path.join(resource_folder, f), os.path.join(experiment_dir, f))
                 logger.info(f"auto-detected and moved: {f}")
 
+    return dest_path
+
 def run_asap(exec_context, model_path, resource_folder):
     # execute autosched ap simulation with duration parameters
     if not os.path.exists(model_path):
@@ -142,8 +144,9 @@ def run_asap(exec_context, model_path, resource_folder):
 
 def run_simpy(exec_context, input_2, model_path, resource_folder):
     # run simpy simulation and map input table columns to command line arguments
-    _, config_value, experiment_dir = _get_paths(exec_context, input_2, resource_folder)
+    _, config_value, experiment_dir = _get_paths(exec_context, input_2, resource_folder, "SimPy")
     simpy_args = []
+    val = ''
 
     if input_2 is not None:
         df = input_2.to_pandas()
@@ -200,3 +203,5 @@ def run_simpy(exec_context, input_2, model_path, resource_folder):
     cmd = [sys.executable, model_path] + simpy_args
     logger.info(f"running simpy model: {' '.join(cmd)}")
     subprocess.run(cmd, check=True)
+
+    return simpy_args[1]

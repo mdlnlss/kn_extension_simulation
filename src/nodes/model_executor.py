@@ -68,21 +68,21 @@ class ModelExecutorCustom:
 
         if simulation_tool == "ANYLOGIC":
             try:
-                execute_simulation.run_anylogic(exec_context, input_2, resource_folder)
+                exec_context.flow_variables["output_file_path"] = execute_simulation.run_anylogic(exec_context, input_2, resource_folder)
             except Exception as e:
                 LOGGER.error(f"AnyLogic execution failed: {e}")
                 raise
 
         elif simulation_tool == "ASAP":
             try:
-                execute_simulation.run_asap(exec_context, model_path, resource_folder)
+                exec_context.flow_variables["output_file_path"] = execute_simulation.run_asap(exec_context, model_path, resource_folder)
             except Exception as e:
                 LOGGER.error(f"ASAP execution failed: {e}")
                 raise
 
         elif simulation_tool == "SIMPY":
             try:
-                execute_simulation.run_simpy(exec_context, input_2, model_path, resource_folder)
+                exec_context.flow_variables["output_file_path"] = execute_simulation.run_simpy(exec_context, input_2, model_path, resource_folder)
             except Exception as e:
                 LOGGER.error(f"SimPy execution failed: {e}")
                 raise

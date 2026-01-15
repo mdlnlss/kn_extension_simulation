@@ -5,7 +5,6 @@ from sim_ext import main_category
 from typing import TextIO, BinaryIO
 import pandas as pd
 
-
 # setup logger
 LOGGER = logging.getLogger(__name__)
     
@@ -143,11 +142,12 @@ class ModelImporterCustom:
     def execute(self, exec_context):
         import os
         import shutil
-        import subprocess
         import re
         import json
         import sys
+        import subprocess
         import pandas as pd
+        import datetime
 
         # path Mapping
         tool_paths = {
@@ -157,6 +157,7 @@ class ModelImporterCustom:
         }
         
         selected_path = tool_paths.get(self.tool_choice, "")
+        now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
         if not selected_path or not os.path.isfile(selected_path):
             raise FileNotFoundError(f"Model file not found: {selected_path}")
@@ -164,7 +165,7 @@ class ModelImporterCustom:
         # workspace navigation
         workflow_data_dir = exec_context.get_workflow_data_area_dir()
         workspace_folder_dir = os.path.abspath(os.path.join(workflow_data_dir, "..", ".."))
-        created_folder_dir = os.path.join(workspace_folder_dir, "Resources")
+        created_folder_dir = os.path.join(workspace_folder_dir, "Resources", f"{self.tool_choice}_{now}")
 
         exec_context.flow_variables.update({
             "simulation_tool": self.tool_choice,
