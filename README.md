@@ -1,7 +1,10 @@
+> **Work in Progress**
+
 # Simulation Study Extension for KNIME
 
 [![KNIME Hub](https://img.shields.io/badge/KNIME%20Hub-View%20on%20Hub-blue?style=flat-square)](https://hub.knime.com/) <!-- TODO: Add Hub Link -->
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
+> *(<- TODO: Replace with actual Hub link)*
 
 This repository is the home of the Simulation Study Extension for KNIME Analytics Platform. The extension provides a set of nodes for Design of Experiments (DoE) and simulation model execution.
 
@@ -67,7 +70,7 @@ Drag and drop the following link into a running KNIME Analytics Platform instanc
 > Install Simulation Study Extension from KNIME Hub *(<- TODO: Replace with actual Hub link)*
 
 #### Install from Extension Manager
-1. In KNIME, go to `File` → `Install KNIME Extensions...`.
+1. In KNIME, go to `File` → `Install extensions...`.
 2. In the search box, type "Simulation Study".
 3. Select the "Simulation Study Extension" and click `Next` to complete the installation.
 4. Restart KNIME Analytics Platform.
