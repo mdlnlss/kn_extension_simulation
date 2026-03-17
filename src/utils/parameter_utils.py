@@ -7,14 +7,14 @@ class SimTools(knext.EnumParameterOptions):
         "Commercial simulation software for agent-based, discrete-event, and system dynamics modeling"
     )
 
-    ASAP = (
-        "AutoSched AP", 
-        "Advanced Planning and Scheduling tool commonly used in semiconductor and manufacturing simulations"
-    )
-
     SIMPY = (
         "SimPy", 
         "Open-source process-based discrete-event simulation framework in Python"
+    )
+
+    OTHER = (
+        "Other (CMD-based Execution)",
+        "Supports any simulation tool that can be launched via a command-line interface, enabling integration through custom CMD commands"
     )
 
 # defines the output format options for the simulation

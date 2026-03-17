@@ -28,11 +28,17 @@ LOGGER = logging.getLogger(__name__)
 )
 
 class ModelExecutorCustom:
-    """Execute a simulation model using an external engine
+    """Execute a simulation model using the tool configured in the Simulation Model Importer.
 
-    This node takes a simulation model (e.g., AnyLogic, SimPy, or ASAP) and optionally a table
-    of configuration parameters or factor combinations, then runs the model accordingly.
-    The behavior adapts based on the selected simulation tool.
+    This node receives a simulation model reference and an optional table of configuration
+    parameters or DoE factor combinations, then triggers the corresponding simulation run.
+    Execution behavior adapts automatically based on the simulation tool set via flow variables.
+
+    ### Supported Tools:
+    - **AnyLogic**: Launches the model via a platform-specific script and relocates output files.
+    - **SimPy**: Runs the Python script with command-line arguments derived from the input table.
+    - **Other (CMD-based)**: Executes the user-defined CMD command with the resolved model path.
+
     """
 
     # configuration-time logic
@@ -73,11 +79,11 @@ class ModelExecutorCustom:
                 LOGGER.error(f"AnyLogic execution failed: {e}")
                 raise
 
-        elif simulation_tool == "ASAP":
+        elif simulation_tool == "OTHER":
             try:
-                exec_context.flow_variables["output_file_path"] = execute_simulation.run_asap(exec_context, model_path, resource_folder)
+                execute_simulation.run_other(exec_context, model_path, resource_folder)
             except Exception as e:
-                LOGGER.error(f"ASAP execution failed: {e}")
+                LOGGER.error(f"CMD-based execution failed: {e}")
                 raise
 
         elif simulation_tool == "SIMPY":

@@ -17,28 +17,26 @@ LOGGER = logging.getLogger(__name__)
 )
 
 @knext.output_port(name="Output Data", description="Result of simulation model setup.", port_type=port.simulation_port_type)
-@knext.output_table_group(name="SimPy Arguments", description="...")
+@knext.output_table_group(name="SimPy Arguments", description="A table pre-filled with the default argument values parsed from the SimPy model's --help output. Only active when SimPy is selected as the simulation tool.")
 
 class ModelImporterCustom:
-    """Short one-line description of the node.
-        This node enables structured integration of external simulation models into a KNIME workflow.
-        It supports multiple simulation tools and abstracts the differences in model file structures and configuration options.
+    """Import a simulation model and prepare it for execution within a KNIME workflow.
+
+        This node registers an external simulation model and copies its files into a
+        structured resource directory inside the KNIME workspace. Configuration values
+        are passed downstream as flow variables.
 
         ### Supported Tools:
-        - **AnyLogic**: Import a `.jar`-based model with either database or file-based input.
-        - **AutoSched AP**: Import a `.xmdx` model file including its associated model name.
-        - **SimPy**: Import a `.py` simulation script with an optional output file path.
+        - **AnyLogic**: Import a `.jar`-based model with file-based or database output.
+        - **SimPy**: Import a `.py` simulation script; arguments are parsed automatically.
+        - **Other (CMD-based)**: Integrate any simulation tool executable via a custom command-line call.
 
         ### Features:
-        - Dynamically adapts visible settings based on the selected simulation tool.
-        - Validates required paths and file types during configuration and execution.
-        - Automatically prepares a standardized `Resources/` directory within the KNIME workspace.
-        - Makes selected configuration values available as flow variables (e.g., DB host, port, dialect, etc.).
-        - Provides tool-specific information in the node output.
+        - Adapts visible settings dynamically based on the selected simulation tool.
+        - Validates model file paths and types at configuration time.
+        - Creates a timestamped `Resources/` directory in the KNIME workspace.
+        - Exports key settings (tool, model path, output mode, CMD command) as flow variables.
 
-        ### Output Table:
-        The output is a single-row table containing key metadata about the imported model,
-        including paths, tool type, and configuration details relevant to the selected tool.
     """
 
     # tool selection
@@ -52,8 +50,8 @@ class ModelImporterCustom:
 
     # AnyLogic model path input
     anylogic_model_path = knext.LocalPathParameter(
-        label="Model Path", 
-        description="Enter a path to the model (.jar).",
+        label="Model Path",
+        description="Enter the path to the AnyLogic model export (.jar). The file must exist on the local file system.",
         placeholder_text="my/path/model.jar"
     ).rule(knext.OneOf(tool_choice, [pdef.SimTools.ANYLOGIC.name]), knext.Effect.SHOW)
 
@@ -66,33 +64,31 @@ class ModelImporterCustom:
         if not path.endswith(".jar"):
             raise ValueError("Invalid path: must end with '.jar'")
 
-    # ASAP tool model path
-    asap_model_path = knext.LocalPathParameter(
-        label="Model Path", 
-        description="Enter a path to the model .xmdx file. The required syntax of the path depends on the chosen file system",
-        placeholder_text="my/path/model.xmdx"
-    ).rule(knext.OneOf(tool_choice, [pdef.SimTools.ASAP.name]),  knext.Effect.SHOW)
+    # Other (CMD-based) tool model path
+    other_model_path = knext.LocalPathParameter(
+        label="Model Path",
+        description="Enter the path to the simulation model file. The required file format and path syntax depend on the simulation tool being executed.",
+        placeholder_text="my/path/model"
+    ).rule(knext.OneOf(tool_choice, [pdef.SimTools.OTHER.name]),  knext.Effect.SHOW)
 
-    # validation for ASAP model path
-    @asap_model_path.validator
-    def validate_asap_model_path(path: str):
+    # validation for Other (CMD-based) model path
+    @other_model_path.validator
+    def validate_other_model_path(path: str):
         # If path is empty, likely the field is hidden and unused
         if not path:
             return
-        if not path.endswith(".xmdx"):
-            raise ValueError ("Invalid path: must end with '.xmdx'")
 
-    # ASAP model name
-    asap_model_name = knext.StringParameter(
-        label="Model",
-        description="Model name",
-        default_value="your_model"
-    ).rule(knext.OneOf(tool_choice, [pdef.SimTools.ASAP.name]),  knext.Effect.SHOW)
-        
+    # CMD command for Other tool execution
+    other_cmd_command = knext.StringParameter(
+        label="CMD Command",
+        description="Enter the command used to execute the simulation tool. Use placeholders like {model_path} to reference the model file path dynamically.",
+        default_value=""
+    ).rule(knext.OneOf(tool_choice, [pdef.SimTools.OTHER.name]), knext.Effect.SHOW)
+
     # SimPy model path
     simpy_model_path = knext.LocalPathParameter(
-        label="Model Path", 
-        description="Enter a path to the XXX. The required syntax of the path depends on the chosen file system",
+        label="Model Path",
+        description="Enter the path to the SimPy simulation script (.py). The script must support a --help flag exposing its arguments and default values.",
         placeholder_text="my/path/model.py"
     ).rule(knext.OneOf(tool_choice, [pdef.SimTools.SIMPY.name]),  knext.Effect.SHOW)
 
@@ -109,7 +105,7 @@ class ModelImporterCustom:
     # output type
     simulation_output = knext.EnumParameter(
         label="Output Type",
-        description="...",
+        description="Select how the simulation writes its results: directly to a file on disk or to a connected database.",
         default_value=pdef.SimulationOutputType.FILEBASED.name,
         enum=pdef.SimulationOutputType,
         style=knext.EnumParameter.Style.VALUE_SWITCH,
@@ -152,7 +148,7 @@ class ModelImporterCustom:
         # path Mapping
         tool_paths = {
             pdef.SimTools.ANYLOGIC.name: self.anylogic_model_path,
-            pdef.SimTools.ASAP.name: self.asap_model_path,
+            pdef.SimTools.OTHER.name: self.other_model_path,
             pdef.SimTools.SIMPY.name: self.simpy_model_path
         }
         
@@ -173,6 +169,9 @@ class ModelImporterCustom:
             "workflow_folder_dir": workspace_folder_dir,
             "resource_folder": created_folder_dir
         })
+
+        if self.tool_choice == pdef.SimTools.OTHER.name:
+            exec_context.flow_variables["cmd_command"] = self.other_cmd_command
 
         # safe resource preparation
         os.makedirs(created_folder_dir, exist_ok=True)

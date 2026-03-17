@@ -118,28 +118,25 @@ def run_anylogic(exec_context, input_2, resource_folder):
 
     return dest_path
 
-def run_asap(exec_context, model_path, resource_folder):
-    # execute autosched ap simulation with duration parameters
+def run_other(exec_context, model_path, resource_folder):
+    # execute any simulation tool via a user-defined CMD command
     if not os.path.exists(model_path):
-        raise filenotfounderror(f"asap model file missing: {model_path}")
+        raise FileNotFoundError(f"Model file not found: {model_path}")
 
-    # retrieve simulation duration from knime flow variables
-    asap_days = exec_context.flow_variables.get("asap_days")
-    if asap_days is None:
-        raise valueerror("missing flow variable: asap_days")
+    # retrieve the CMD command from flow variables and resolve the model path placeholder
+    cmd_command = exec_context.flow_variables.get("cmd_command", "")
+    if not cmd_command:
+        raise ValueError("Missing flow variable: 'cmd_command'. Define the CMD command in the Simulation Model Importer.")
 
-    # extract model name without extension for the command line interface
-    model_name = os.path.splitext(os.path.basename(model_path))[0]
-    cmd = ["asap", f"-d{asap_days}", model_name]
+    cmd_command = cmd_command.replace("{model_path}", model_path)
 
-    logger.info(f"executing asap model: {' '.join(cmd)}")
+    logger.info(f"Executing CMD command: {cmd_command}")
     try:
-        # run the command and capture output for logging
-        proc = subprocess.run(cmd, cwd=resource_folder, capture_output=True, text=True, check=True)
+        proc = subprocess.run(cmd_command, cwd=resource_folder, capture_output=True, text=True, shell=True, check=True)
         if proc.stdout:
-            logger.info(f"asap output: {proc.stdout}")
-    except subprocess.calledprocesserror as e:
-        logger.error(f"asap execution failed: {e.stderr}")
+            logger.info(f"CMD output: {proc.stdout}")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"CMD execution failed: {e.stderr}")
         raise
 
 def run_simpy(exec_context, input_2, model_path, resource_folder):

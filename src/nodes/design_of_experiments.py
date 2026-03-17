@@ -34,12 +34,18 @@ LOGGER = logging.getLogger(__name__)
 )
 
 class DesignOfExperiments:
-    """Generates experimental designs based on input factor definitions
+    """Generate a structured set of experiment configurations from factor definitions.
 
-    This node combines one or more factor definition tables and applies a selected 
-    experimental design strategy (e.g. full factorial, Latin hypercube, etc.) to 
-    produce a structured set of experiment configurations. 
-    Output is provided in both wide and long table formats.
+    This node combines one or more factor definition tables produced by the Factor Definition
+    node and applies the selected experimental design strategy to generate all configurations
+    to be simulated. Results are provided in both wide and long format for flexible downstream use.
+
+    ### Supported Design Methods:
+    - **Full Factorial**: All possible combinations of factor levels.
+    - **Latin Hypercube Sampling (LHS)**: Space-filling random sampling across factor ranges.
+    - **Space-Filling LHS**: Enhanced LHS maximizing point distances via maximin criterion.
+    - **Plackett-Burman**: Efficient screening design requiring exactly two levels per factor.
+
     """
 
     # enum parameter to let the user select the design of experiments method
@@ -71,7 +77,7 @@ class DesignOfExperiments:
     # optional: number of iterations for maximin LHS (space-filling)
     lhs_iterations = knext.IntParameter(
         label="LHS Iterations (maximin)",
-        description="Used only for Space-Filling LHS; higher = more space-filling, slower.",
+        description="Number of optimization iterations for Space-Filling LHS. Higher values produce more evenly distributed samples at the cost of longer computation time.",
         default_value=10,
         min_value=1
     ).rule(

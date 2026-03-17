@@ -34,17 +34,18 @@ class StringFactorValues:
 )
 
 class FactorDefinitionDOE:
-    """Generate factor definitions and value ranges for use in Design of Experiments (DoE)
+    """Define factor levels and value ranges for use in Design of Experiments.
 
-        This node enables the definition of factor levels for simulation experiments.
-        Based on either table-based metadata or manual input (argument-based), the node
-        generates a KNIME table representing possible values for each factor, which can
-        later be used to create experiment configurations.
+        This node produces a factor definition table that serves as input to the
+        Design of Experiments node. Factors can be defined either from table metadata
+        (table-based) or specified directly as standalone arguments (argument-based).
+        Each output column represents one factor; rows contain its possible values.
+
     """
 
     factor_input_type = knext.EnumParameter(
         label="Input Type",
-        description="Select how metadata is provided: as a 'normal' data table or as arguments",
+        description="Select how factor metadata is provided. Use 'table-based' to read factor identifiers from the input table, or 'argument-based' to define a standalone factor directly via node parameters.",
         default_value=parameters.FactorInputType.TABLEBASED.name,
         enum=parameters.FactorInputType,
         style=knext.EnumParameter.Style.VALUE_SWITCH,
@@ -53,8 +54,8 @@ class FactorDefinitionDOE:
     # string parameter to define the name of the output table
     # default value is set to "your_table"
     table_name = knext.StringParameter(
-        "Table",
-        "Enter the name of the table to use as a prefix for factor identifiers",
+        "Table Name",
+        "Enter the name of the simulation table this factor belongs to. Used as a prefix in the generated factor identifier column name.",
         default_value="your_table"
     ).rule(
         knext.OneOf(factor_input_type, [parameters.FactorInputType.TABLEBASED.name]),  
