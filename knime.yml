@@ -4,13 +4,13 @@
 # Extension metadata
 name: simulation  # Will be concatenated with the group_id to an ID
 group_id: org.knime
-description: Simulation Extension # Human readable bundle name / description
+description: Simulation Study Extension # Human readable bundle name / description
 long_description: Pure-Python extension for Simulation Studies
 version: 0.1.0 # Version of this Python node extension
 
 # legal information 
-author: Research Group Industry Analytics, Madlene Leißau
-vendor: University of Applied Science Zwickau, Germany
+author: Madlene Leißau
+vendor: Research Group Industry Analytics, University of Applied Science Zwickau, Germany
 license_file: LICENSE.TXT # Best practice: put your LICENSE.TXT next to the knime.yml; otherwise you would need to change to path/to/LICENSE.txt
 
 
