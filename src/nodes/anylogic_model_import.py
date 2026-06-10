@@ -44,6 +44,23 @@ class AnyLogicModelImporter:
         if not path.endswith(".jar"):
             raise ValueError("Invalid path: must end with '.jar'")
 
+    simulation_input = knext.EnumParameter(
+        label="Input Type",
+        description="Select whether the simulation requires an input file located in the model's resource directory.",
+        default_value=pdef.SimulationInputType.NONE.name,
+        enum=pdef.SimulationInputType,
+        style=knext.EnumParameter.Style.VALUE_SWITCH,
+    )
+
+    input_file = knext.StringParameter(
+        label="Input Filename",
+        description="Name of the input file located in the model directory (e.g. input.csv).",
+        default_value="input.csv",
+    ).rule(
+        knext.OneOf(simulation_input, [pdef.SimulationInputType.FILEBASED.name]),
+        knext.Effect.SHOW,
+    )
+
     simulation_output = knext.EnumParameter(
         label="Output Type",
         description="Select how the simulation writes its results: directly to a file on disk or to a connected database.",
@@ -97,7 +114,11 @@ class AnyLogicModelImporter:
         model_path_in_res = os.path.join(created_folder_dir, os.path.basename(selected_path))
         exec_context.flow_variables["model_path"] = model_path_in_res
 
+        if self.simulation_input == pdef.SimulationInputType.FILEBASED.name:
+            input_path_in_res = os.path.join(created_folder_dir, self.input_file)
+            exec_context.flow_variables["input_file_path"] = input_path_in_res
+
         if self.simulation_output == pdef.SimulationOutputType.FILEBASED.name:
-            exec_context.flow_variables["output_file"] = self.output_file
+            exec_context.flow_variables["output_file_path"] = os.path.join(created_folder_dir, self.output_file)
 
         return port.SimulationModelPort(port.SimulationModelSpec(), model_path_in_res)

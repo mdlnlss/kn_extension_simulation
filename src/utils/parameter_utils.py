@@ -17,6 +17,18 @@ class SimTools(knext.EnumParameterOptions):
         "Supports any simulation tool that can be launched via a command-line interface, enabling integration through custom CMD commands"
     )
 
+# defines whether the simulation requires an input file
+class SimulationInputType(knext.EnumParameterOptions):
+    FILEBASED = (
+        "file-based",
+        "The simulation requires an input file located in the model's resource directory"
+    )
+
+    NONE = (
+        "none",
+        "The simulation does not require an input file"
+    )
+
 # defines the output format options for the simulation
 class SimulationOutputType(knext.EnumParameterOptions):
     FILEBASED = (

@@ -91,7 +91,7 @@ def run_anylogic(exec_context, input_2, resource_folder):
     subprocess.run(cmd, check=True, cwd=resource_folder)
 
     # determine the expected output filename from flow variables or default configuration
-    flow_out = exec_context.flow_variables.get("output_file", "")
+    flow_out = os.path.basename(exec_context.flow_variables.get("output_file_path", ""))
     
     # find the appropriate extension by checking against allowed formats
     target_ext = ".csv"
@@ -153,7 +153,7 @@ def run_simpy(exec_context, input_2, model_path, resource_folder):
         row = df.iloc[0]
         
         # determine the preferred file extension for the output
-        flow_out = exec_context.flow_variables.get("output_file", "")
+        flow_out = exec_context.flow_variables.get("output_file_cmd", "")
         fallback_ext = ".csv"
         for ext in allowed_extensions:
             if flow_out.lower().endswith(ext):
@@ -186,7 +186,7 @@ def run_simpy(exec_context, input_2, model_path, resource_folder):
             simpy_args.extend(["--output", os.path.join(experiment_dir, f"{config_value}{fallback_ext}")])
     else:
         # handle case where only flow variables are used for simulation arguments
-        raw_output = exec_context.flow_variables.get("output_file")
+        raw_output = exec_context.flow_variables.get("output_file_cmd")
         if raw_output:
             parts = raw_output.split()
             if "--output" in parts:
