@@ -14,7 +14,7 @@ simpy = ">=4.1.1,<5"
 
 [feature.build.dependencies]
 python = "3.9.*"
-knime-extension-bundling = "5.8.*"
+knime-extension-bundling = "5.11.*"
 
 [feature.build.tasks]
 build = "python ./.pixi/envs/build/Scripts/build_python_extension.py-script.py --disable-strict-enforcement . ./local-update-site"
