@@ -2,8 +2,8 @@
 # It is used to define the extension's metadata and configuration.
 
 # Extension metadata
-name: Simulation  # Will be concatenated with the group_id to an ID
-group_id: org.industryanalytics
+name: simulation  # Will be concatenated with the group_id to an ID
+group_id: org.knime
 description: Simulation Study Extension # Human readable bundle name / description
 long_description: This KNIME extension provides a complete pipeline for running and managing simulation studies — importing models (AnyLogic, SimPy, or any CMD-based tool), executing them with configurable inputs/outputs, and feeding back results as flow variables or tables. It also includes Design of Experiments nodes for defining factor ranges and generating structured experiment plans (Full Factorial, LHS, Space-Filling LHS, Plackett-Burman) to systematically explore the simulation's parameter space.
 version: 0.1.0 # Version of this Python node extension
